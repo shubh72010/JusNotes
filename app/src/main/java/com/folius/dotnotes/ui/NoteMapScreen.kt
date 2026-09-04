@@ -5,18 +5,25 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.rememberTransformableState
 import androidx.compose.foundation.gestures.transformable
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Map
+import androidx.compose.animation.*
+import androidx.compose.animation.core.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -88,215 +95,161 @@ fun NoteMapScreen(
 
     var isPillMenuExpanded by remember { mutableStateOf(false) }
 
-    Scaffold { padding ->
-        Box(modifier = Modifier.fillMaxSize().padding(padding)) {
-            // Map content area
-            BoxWithConstraints(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(MaterialTheme.colorScheme.surface)
-                    .pointerInput(Unit) {
-                        detectTapGestures(onTap = { 
-                            focusManager.clearFocus()
-                            isPillMenuExpanded = false
-                        })
-                    }
-            ) {
-                val canvasWidth = constraints.maxWidth.toFloat()
-                val canvasHeight = constraints.maxHeight.toFloat()
-                // Grid Background
-                val gridColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f)
-                Canvas(modifier = Modifier.fillMaxSize()) {
-                    val gridSize = 40.dp.toPx()
-                    val scaledGrid = gridSize * scale
-                    
-                    val startX = (offset.x % scaledGrid)
-                    val startY = (offset.y % scaledGrid)
-                    
-                    var x = startX - scaledGrid
-                    while (x < size.width + scaledGrid) {
-                        drawLine(
-                            color = gridColor,
-                            start = Offset(x, 0f),
-                            end = Offset(x, size.height),
-                            strokeWidth = 1.dp.toPx()
-                        )
-                        x += scaledGrid
-                    }
-                    
-                    var y = startY - scaledGrid
-                    while (y < size.height + scaledGrid) {
-                        drawLine(
-                            color = gridColor,
-                            start = Offset(0f, y),
-                            end = Offset(size.width, y),
-                            strokeWidth = 1.dp.toPx()
-                        )
-                        y += scaledGrid
-                    }
-                }
 
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .transformable(transformableState)
-                        .graphicsLayer(
-                            scaleX = scale,
-                            scaleY = scale,
-                            translationX = offset.x,
-                            translationY = offset.y
-                        )
-                ) {
-                    // Render Connections (Lines)
-                    val density = LocalDensity.current
-                    val connectionColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f)
-                    
-                    val cardWidthPx = remember(density) { with(density) { 200.dp.toPx() } }
-                    val cardHeightPx = remember(density) { with(density) { 100.dp.toPx() } }
-                    
-                    val connections = remember(localMapItems, allNotes, cardWidthPx, cardHeightPx) {
-                        val list = mutableListOf<Pair<Offset, Offset>>()
-                        
-                        localMapItems.forEach { sourceItem ->
-                            val sourceNote = allNotes.find { it.id == sourceItem.noteId }
-                            sourceNote?.linkedNoteIds?.forEach { targetNoteId ->
-                                val targetItem = localMapItems.find { it.noteId == targetNoteId }
-                                if (targetItem != null) {
-                                    val start = Offset(sourceItem.x + cardWidthPx / 2, sourceItem.y + cardHeightPx / 2)
-                                    val end = Offset(targetItem.x + cardWidthPx / 2, targetItem.y + cardHeightPx / 2)
-                                    list.add(start to end)
-                                }
-                            }
+    val outerBg = MaterialTheme.colorScheme.background
+    val cardBg = MaterialTheme.colorScheme.surfaceContainer
+    val pillBg = MaterialTheme.colorScheme.surfaceContainerHighest
+    Scaffold(containerColor = outerBg) { padding ->
+        Box(
+            modifier = Modifier.fillMaxSize().padding(padding).background(outerBg).padding(horizontal = 16.dp, vertical = 12.dp)
+        ) {
+            Column(modifier = Modifier.fillMaxSize()) {
+                // Map canvas inside rounded card
+                Surface(shape = RoundedCornerShape(32.dp), color = cardBg, modifier = Modifier.weight(1f).fillMaxWidth().clip(RoundedCornerShape(32.dp))) {
+                    BoxWithConstraints(
+                        modifier = Modifier.fillMaxSize().background(cardBg).pointerInput(Unit) {
+                            detectTapGestures(onTap = { focusManager.clearFocus(); isPillMenuExpanded = false })
                         }
-                        list
-                    }
-
-                    Canvas(modifier = Modifier.fillMaxSize()) {
-                        connections.forEach { (start, end) ->
-                            drawLine(
-                                color = connectionColor,
-                                start = start,
-                                end = end,
-                                strokeWidth = 2.dp.toPx(),
-                                cap = StrokeCap.Round
-                            )
-                        }
-                    }
-                    
-                    // Render Map Items
-                    localMapItems.forEach { item ->
-                        val linkedNote = allNotes.find { it.id == item.noteId }
-                        if (linkedNote != null) {
-                            MapNoteCard(
-                                item = item,
-                                note = linkedNote,
-                                scale = scale,
-                                onPositionCommitted = { newX, newY ->
-                                    // Update local state and parent state together on commit
-                                    val updated = localMapItems.map { 
-                                        if (it.id == item.id) it.copy(x = newX, y = newY) else it 
-                                    }
-                                    localMapItems = updated
-                                    onMapItemsChange(updated)
-                                },
-                                onClick = { onNavigateToNote(linkedNote.id) },
-                                onLongClick = {
-                                    val updated = localMapItems.filter { it.id != item.id }
-                                    localMapItems = updated
-                                    onMapItemsChange(updated)
-                                }
-                            )
-                        }
-                    }
-                }
-                
-                if (localMapItems.isEmpty()) {
-                    Column(
-                        modifier = Modifier.fillMaxSize(),
-                        verticalArrangement = Arrangement.Center,
-                        horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        Icon(
-                            Icons.Default.Map,
-                            contentDescription = null,
-                            modifier = Modifier.size(64.dp),
-                            tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f)
-                        )
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Text(
-                            "Long-press the pill to add notes",
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f)
-                        )
-                    }
-                }
-                
-                if (showAddNoteDialog) {
-                    AddNoteToMapDialog(
-                        allNotes = allNotes.filter { note -> 
-                            !note.isMap && !note.isDeleted && 
-                            note.id != noteId &&
-                            localMapItems.none { item -> item.noteId == note.id }
-                        },
-                            onDismiss = { showAddNoteDialog = false },
-                            onNoteSelected = { selectedNote ->
-                                // Add to center of screen (relative to offset/scale)
-                                val centerX = (canvasWidth / 2 - offset.x) / scale
-                                val centerY = (canvasHeight / 2 - offset.y) / scale
-                                
-                                val newItem = MapItem(
-                                    noteId = selectedNote.id,
-                                    x = centerX, 
-                                    y = centerY
-                                )
-                                val newItems = localMapItems + newItem
-                                localMapItems = newItems
-                                onMapItemsChange(newItems)
-                                showAddNoteDialog = false
-                            },
-                            onCreateNewNote = {
-                                scope.launch {
-                                    val newId = viewModel.saveNote(
-                                        id = null,
-                                        title = "New Note",
-                                        content = ""
-                                    )
-                                    if (newId != -1) {
-                                        val centerX = (canvasWidth / 2 - offset.x) / scale
-                                        val centerY = (canvasHeight / 2 - offset.y) / scale
-                                        val newItem = MapItem(
-                                            noteId = newId,
-                                            x = centerX,
-                                            y = centerY
-                                        )
-                                        val newItems = localMapItems + newItem
-                                        localMapItems = newItems
-                                        onMapItemsChange(newItems)
+                        val canvasWidth = constraints.maxWidth.toFloat()
+                        val canvasHeight = constraints.maxHeight.toFloat()
+                        val gridColor = Color.White.copy(alpha = 0.06f)
+                        androidx.compose.foundation.Canvas(modifier = Modifier.fillMaxSize()) {
+                            val gridSize = 40.dp.toPx()
+                            val scaledGrid = gridSize * scale
+                            val startX = (offset.x % scaledGrid)
+                            val startY = (offset.y % scaledGrid)
+                            var x = startX - scaledGrid
+                            while (x < size.width + scaledGrid) {
+                                drawLine(gridColor, start = Offset(x, 0f), end = Offset(x, size.height), strokeWidth = 1.dp.toPx())
+                                x += scaledGrid
+                            }
+                            var y = startY - scaledGrid
+                            while (y < size.height + scaledGrid) {
+                                drawLine(gridColor, start = Offset(0f, y), end = Offset(size.width, y), strokeWidth = 1.dp.toPx())
+                                y += scaledGrid
+                            }
+                        }
+                        Box(
+                            modifier = Modifier.fillMaxSize().transformable(transformableState).graphicsLayer(scaleX = scale, scaleY = scale, translationX = offset.x, translationY = offset.y)
+                        ) {
+                            val density = LocalDensity.current
+                            val connectionColor = Color.White.copy(alpha = 0.18f)
+                            val cardWidthPx = remember(density) { with(density) { 200.dp.toPx() } }
+                            val cardHeightPx = remember(density) { with(density) { 100.dp.toPx() } }
+                            val connections = remember(localMapItems, allNotes, cardWidthPx, cardHeightPx) {
+                                val list = mutableListOf<Pair<Offset, Offset>>()
+                                localMapItems.forEach { sourceItem ->
+                                    val sourceNote = allNotes.find { it.id == sourceItem.noteId }
+                                    sourceNote?.linkedNoteIds?.forEach { targetNoteId ->
+                                        val targetItem = localMapItems.find { it.noteId == targetNoteId }
+                                        if (targetItem != null) {
+                                            val start = Offset(sourceItem.x + cardWidthPx / 2, sourceItem.y + cardHeightPx / 2)
+                                            val end = Offset(targetItem.x + cardWidthPx / 2, targetItem.y + cardHeightPx / 2)
+                                            list.add(start to end)
+                                        }
                                     }
-                                    showAddNoteDialog = false
+                                }
+                                list
+                            }
+                            androidx.compose.foundation.Canvas(modifier = Modifier.fillMaxSize()) {
+                                connections.forEach { (start, end) -> drawLine(connectionColor, start = start, end = end, strokeWidth = 2.dp.toPx(), cap = StrokeCap.Round) }
+                            }
+                            localMapItems.forEach { item ->
+                                val linkedNote = allNotes.find { it.id == item.noteId }
+                                if (linkedNote != null) {
+                                    MapNoteCard(item = item, note = linkedNote, scale = scale, onPositionCommitted = { newX, newY -> val updated = localMapItems.map { if (it.id == item.id) it.copy(x = newX, y = newY) else it }; localMapItems = updated; onMapItemsChange(updated) }, onClick = { onNavigateToNote(linkedNote.id) }, onLongClick = { val updated = localMapItems.filter { it.id != item.id }; localMapItems = updated; onMapItemsChange(updated) })
                                 }
                             }
+                        }
+                        if (localMapItems.isEmpty()) {
+                            Column(modifier = Modifier.fillMaxSize(), verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
+                                Icon(Icons.Default.Map, null, modifier = Modifier.size(64.dp), tint = Color.White.copy(alpha = 0.15f))
+                                Spacer(modifier = Modifier.height(16.dp))
+                                Text("Long-press the pill to add notes", style = MaterialTheme.typography.bodyLarge.copy(color = Color.White.copy(alpha = 0.4f)))
+                            }
+                        }
+                        if (showAddNoteDialog) {
+                            AddNoteToMapDialog(
+                                allNotes = allNotes.filter { note -> !note.isMap && !note.isDeleted && note.id != noteId && localMapItems.none { item -> item.noteId == note.id } },
+                                onDismiss = { showAddNoteDialog = false },
+                                onNoteSelected = { selectedNote ->
+                                    val centerX = (canvasWidth / 2 - offset.x) / scale
+                                    val centerY = (canvasHeight / 2 - offset.y) / scale
+                                    val newItem = MapItem(noteId = selectedNote.id, x = centerX, y = centerY)
+                                    val newItems = localMapItems + newItem; localMapItems = newItems; onMapItemsChange(newItems); showAddNoteDialog = false
+                                },
+                                onCreateNewNote = {
+                                    scope.launch {
+                                        val newId = viewModel.saveNote(id = null, title = "New Note", content = "")
+                                        if (newId != -1) {
+                                            val centerX = (canvasWidth / 2 - offset.x) / scale
+                                            val centerY = (canvasHeight / 2 - offset.y) / scale
+                                            val newItem = MapItem(noteId = newId, x = centerX, y = centerY)
+                                            val newItems = localMapItems + newItem; localMapItems = newItems; onMapItemsChange(newItems)
+                                        }
+                                        showAddNoteDialog = false
+                                    }
+                                }
+                            )
+                        }
+                    }
+                }
+                Spacer(modifier = Modifier.height(14.dp))
+
+                var localTitle by remember(mapNote.id) { mutableStateOf(mapNote.title) }
+                val mapPH by androidx.compose.animation.core.animateDpAsState(targetValue = if (isPillMenuExpanded) 200.dp else 56.dp, animationSpec = androidx.compose.animation.core.spring(dampingRatio=0.85f, stiffness=300f), label="mapH")
+                val mapPS = if (isPillMenuExpanded) RoundedCornerShape(32.dp) else RoundedCornerShape(50)
+                Surface(shape = mapPS, color = pillBg, modifier = Modifier.fillMaxWidth().height(mapPH)
+                    .pointerInput(Unit) {
+                        var dX = 0f
+                        var dY = 0f
+                        detectDragGestures(
+                            onDragEnd = {
+                                if (isPillMenuExpanded && dY > 80) isPillMenuExpanded = false
+                                else if (dY < -80) isPillMenuExpanded = true
+                                else if (!isPillMenuExpanded && kotlin.math.abs(dX)>80) onBack()
+                                dX = 0f; dY = 0f
+                            },
+                            onDragCancel = { dX = 0f; dY = 0f },
+                            onDrag = { change, amt ->
+                                change.consume()
+                                dX += amt.x
+                                dY += amt.y
+                            }
                         )
+                    }
+                    .combinedClickable(interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }, indication = null, onLongClick={ showAddNoteDialog = true }, onClick={ isPillMenuExpanded = !isPillMenuExpanded }) ) {
+                    androidx.compose.animation.AnimatedContent(targetState = isPillMenuExpanded, label="mapMenu") { exp ->
+                        if (exp) {
+                            Column(modifier=Modifier.fillMaxSize().padding(16.dp), horizontalAlignment=Alignment.CenterHorizontally) {
+                                Box(modifier=Modifier.width(32.dp).height(4.dp).clip(CircleShape).background(Color.White.copy(alpha=0.3f)))
+                                Spacer(modifier=Modifier.height(12.dp))
+                                Button(onClick={ isPillMenuExpanded=false; showAddNoteDialog=true }, modifier=Modifier.fillMaxWidth()) { Text("Add Note") }
+                                OutlinedButton(onClick={ isPillMenuExpanded=false; onBack() }, modifier=Modifier.fillMaxWidth()) { Text("Back", color=Color.White) }
+                                TextButton(onClick={isPillMenuExpanded=false}) { Text("Close", color=Color.White) }
+                            }
+                        } else {
+                            Box(modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp), contentAlignment = Alignment.Center) {
+                                androidx.compose.foundation.text.BasicTextField(
+                                    value = localTitle,
+                                    onValueChange = { localTitle = it; viewModel.updateNoteTitle(noteId, it) },
+                                    singleLine = true,
+                                    textStyle = MaterialTheme.typography.titleMedium.copy(color = MaterialTheme.colorScheme.onSurface, textAlign = androidx.compose.ui.text.style.TextAlign.Center),
+                                    cursorBrush = androidx.compose.ui.graphics.SolidColor(MaterialTheme.colorScheme.onSurface),
+                                    modifier = Modifier.fillMaxWidth(),
+                                    decorationBox = { inner ->
+                                        Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxWidth()) {
+                                            if (localTitle.isEmpty()) Text("map", style = MaterialTheme.typography.titleMedium.copy(color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f), textAlign = androidx.compose.ui.text.style.TextAlign.Center))
+                                            inner()
+                                        }
+                                    }
+                                )
+                            }
+                        }
+                    }
                 }
             }
-
-
-            var localTitle by remember(mapNote.id) { mutableStateOf(mapNote.title) }
-            
-            // DotPill overlay at bottom
-            com.folius.dotnotes.ui.components.DotPill(
-                modifier = Modifier.align(Alignment.BottomCenter),
-                title = localTitle,
-                onTitleChange = { newTitle ->
-                    localTitle = newTitle
-                    viewModel.updateNoteTitle(noteId, newTitle)
-                },
-                placeholderText = "Untitled Map",
-                isMenuExpanded = isPillMenuExpanded,
-                onMenuExpandedChange = { isPillMenuExpanded = it },
-                onSwipeRight = onBack,
-                onLongClick = { showAddNoteDialog = true }
-            )
         }
     }
 }

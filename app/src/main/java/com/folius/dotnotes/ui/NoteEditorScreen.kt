@@ -9,6 +9,8 @@ import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
@@ -43,7 +45,9 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.*
 import androidx.compose.ui.geometry.*
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.runtime.getValue
 import coil.compose.AsyncImage
 import com.folius.dotnotes.data.ChecklistItem
@@ -138,6 +142,12 @@ fun NoteEditorScreen(
     var showMapSelectionDialog by remember { mutableStateOf(false) }
     val mapNotes by viewModel.mapNotes.collectAsState()
     var isPillMenuExpanded by remember { mutableStateOf(false) }
+    var undoArrowTick by remember { mutableStateOf(false) }
+    var redoArrowTick by remember { mutableStateOf(false) }
+    val undoArrowScale by animateFloatAsState(targetValue = if (undoArrowTick) 1.2f else 0.8f, animationSpec = spring(dampingRatio = 0.45f, stiffness = 500f), label = "undoS")
+    val undoArrowAlpha by animateFloatAsState(targetValue = if (undoArrowTick) 1f else 0f, animationSpec = spring(dampingRatio = 0.6f, stiffness = 400f), label = "undoA")
+    val redoArrowScale by animateFloatAsState(targetValue = if (redoArrowTick) 1.2f else 0.8f, animationSpec = spring(dampingRatio = 0.45f, stiffness = 500f), label = "redoS")
+    val redoArrowAlpha by animateFloatAsState(targetValue = if (redoArrowTick) 1f else 0f, animationSpec = spring(dampingRatio = 0.6f, stiffness = 400f), label = "redoA")
     
     val hasShownHints by viewModel.hasShownGestureHints.collectAsState()
     var showHint by remember { mutableStateOf(false) }
@@ -444,350 +454,374 @@ fun NoteEditorScreen(
         }
     }
 
+
+    // --- Minimal redesign to match mock: dark outer, rounded content card, pill title ---
+    val outerBg = MaterialTheme.colorScheme.background
+    val cardBg = MaterialTheme.colorScheme.surfaceContainer
+    val pillBg = MaterialTheme.colorScheme.surfaceContainerHighest
+    val contentPlaceholderColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+
     Scaffold(
-        containerColor = MaterialTheme.colorScheme.surface
-    ) { padding ->
+        containerColor = outerBg
+    ) { innerPadding ->
         Box(
             modifier = Modifier
-                .padding(padding)
+                .padding(innerPadding)
                 .fillMaxSize()
-        ) {
-            Column(modifier = Modifier.fillMaxSize()) {
-                // Word count bar (Legacy, but kept at top subtly)
-                Surface(
-                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 6.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Text(
-                            "$wordCount words Â· $charCount chars",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
+                .background(outerBg)
+                .imePadding()
+                .pointerInput(Unit) {
+                    var totalDrag = 0f
+                    detectHorizontalDragGestures(
+                        onDragEnd = {
+                            if (totalDrag > 300) { attemptBack() }
+                            totalDrag = 0f
+                        },
+                        onDragCancel = { totalDrag = 0f },
+                        onHorizontalDrag = { _, dragAmount -> totalDrag += dragAmount }
+                    )
                 }
-
-                // Main Content area
-                NoteContent(
-                    title = title,
-                    onTitleChange = { title = it },
-                    content = content,
-                    onContentChange = { content = it },
-                    images = images,
-                    onImageRemove = { images = images - it },
-                    isChecklist = isChecklist,
-                    onIsChecklistChange = { 
-                        if (it && !isChecklist) { // Conversion text -> check
-                            if (content.text.isNotBlank()) {
-                                val newItems = content.text.split("\n").filter { line -> line.isNotBlank() }.map { line -> ChecklistItem(text = line.trim()) }
-                                checklist.clear()
-                                checklist.addAll(newItems)
-                            }
-                            content = TextFieldValue("")
-                        } else if (!it && isChecklist) { // Conversion check -> text
-                            if (checklist.isNotEmpty()) {
-                                val newText = checklist.joinToString("\n") { item -> (if (item.isChecked) "- [x] " else "- [ ] ") + item.text }
-                                content = TextFieldValue(newText, selection = TextRange(newText.length))
-                            }
-                            checklist.clear()
-                        }
-                        isChecklist = it 
-                    },
-                    checklist = checklist,
-                    isMap = isMap,
-                    tags = tags,
-                    noteColor = noteColor,
-                    onImageClick = onImageClick,
-                    showMarkdownPreview = showMarkdownPreview,
-                    onNavigateToNote = onNavigateToNote,
-                    modifier = Modifier.weight(1f),
-                    noteId = noteId,
-                    showTitleAnimation = showTitleAnimation,
-                    showContentAnimation = showContentAnimation,
-                    backlinks = backlinks,
-                    attemptBack = attemptBack,
-                    showTagInput = showTagInput,
-                    onShowTagInput = { showTagInput = it },
-                    scope = scope,
-                    context = context,
-                    viewModel = viewModel,
-                    padding = padding
-                )
-            }
-
-            // Full-screen scrim when pill menu or search is expanded
-            if (isPillMenuExpanded || isTitleExpanded) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(MaterialTheme.colorScheme.scrim.copy(alpha = 0.4f))
-                        .clickable(
-                            interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
-                            indication = null
-                        ) {
-                            isPillMenuExpanded = false
-                            isTitleExpanded = false
-                        }
-                )
-            }
-
-            // JusBrowse-style Toolbar and Tabs
+        ) {
             Column(
                 modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .imePadding()
-                    .padding(bottom = 8.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
+                    .fillMaxSize()
+                    .padding(horizontal = 16.dp, vertical = 12.dp)
             ) {
-                // Gesture Hint Tip
-                androidx.compose.animation.AnimatedVisibility(
-                    visible = showHint,
-                    enter = fadeIn() + expandVertically(),
-                    exit = fadeOut() + shrinkVertically()
+                // Content card — matches Image 1: large rounded rectangle filling screen
+                Surface(
+                    shape = RoundedCornerShape(32.dp),
+                    color = cardBg,
+                    shadowElevation = 0.dp,
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth()
                 ) {
-                    Card(
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
-                        shape = RoundedCornerShape(12.dp),
-                        modifier = Modifier.padding(bottom = 8.dp)
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(0.dp)
                     ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
-                        ) {
-                            Icon(Icons.Default.TouchApp, null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onPrimaryContainer)
-                            Spacer(Modifier.width(8.dp))
-                            Text(
-                                "Tip: Swipe the pill left/right to Undo/Redo",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onPrimaryContainer
-                            )
-                            Spacer(Modifier.width(4.dp))
-                            IconButton(onClick = { showHint = false }, modifier = Modifier.size(24.dp)) {
-                                Icon(Icons.Default.Close, null, modifier = Modifier.size(14.dp))
+                        if (isChecklist) {
+                            val lazyState = androidx.compose.foundation.lazy.rememberLazyListState()
+                            val reorderState = rememberReorderableLazyListState(lazyState) { from, to ->
+                                checklist.add(to.index, checklist.removeAt(from.index))
+                            }
+                            androidx.compose.foundation.lazy.LazyColumn(
+                                state = lazyState,
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .padding(horizontal = 20.dp, vertical = 20.dp),
+                                verticalArrangement = Arrangement.spacedBy(2.dp)
+                            ) {
+                                items(checklist, key = { it.id }) { item ->
+                                    ReorderableItem(reorderState, key = item.id) { isDragging ->
+                                        val elevation = if (isDragging) 8.dp else 0.dp
+                                        Surface(shadowElevation = elevation, color = Color.Transparent) {
+                                            Row(
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                modifier = Modifier.fillMaxWidth()
+                                            ) {
+                                                Checkbox(
+                                                    checked = item.isChecked,
+                                                    onCheckedChange = { checked ->
+                                                        val idx = checklist.indexOfFirst { it.id == item.id }
+                                                        if (idx != -1) checklist[idx] = item.copy(isChecked = checked)
+                                                    },
+                                                    colors = CheckboxDefaults.colors(
+                                                        checkedColor = MaterialTheme.colorScheme.onSurface,
+                                                        uncheckedColor = contentPlaceholderColor,
+                                                        checkmarkColor = cardBg
+                                                    )
+                                                )
+                                                androidx.compose.foundation.text.BasicTextField(
+                                                    value = item.text,
+                                                    onValueChange = { nv ->
+                                                        val idx = checklist.indexOfFirst { it.id == item.id }
+                                                        if (idx != -1) checklist[idx] = item.copy(text = nv)
+                                                    },
+                                                    textStyle = MaterialTheme.typography.bodyLarge.copy(
+                                                        color = if (item.isChecked) Color.White.copy(alpha = 0.5f) else Color.White
+                                                    ),
+                                                    modifier = Modifier
+                                                        .weight(1f)
+                                                        .padding(vertical = 8.dp)
+                                                )
+                                                IconButton(onClick = {}, modifier = Modifier.draggableHandle()) {
+                                                    Icon(Icons.Default.DragHandle, null, tint = contentPlaceholderColor)
+                                                }
+                                                IconButton(onClick = { checklist.removeIf { it.id == item.id } }) {
+                                                    Icon(Icons.Default.Close, null, tint = contentPlaceholderColor, modifier = Modifier.size(18.dp))
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                                item {
+                                    TextButton(onClick = { checklist.add(ChecklistItem(text = "")) }) {
+                                        Icon(Icons.Default.Add, null, tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f))
+                                        Spacer(Modifier.width(4.dp))
+                                        Text("Add Item", color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f))
+                                    }
+                                }
+                            }
+                        } else if (showMarkdownPreview) {
+                            val cs = MaterialTheme.colorScheme
+                            val blocks = remember(content.text) {
+                                MarkdownRenderer.parseBlocks(
+                                    markdown = content.text,
+                                    linkColor = Color(0xFF9AB3FF),
+                                    codeColor = Color.White,
+                                    codeBackground = Color.White.copy(alpha = 0.08f)
+                                )
+                            }
+                            androidx.compose.foundation.lazy.LazyColumn(
+                                modifier = Modifier.fillMaxSize().padding(horizontal = 20.dp, vertical = 20.dp),
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                items(blocks.size) { idx ->
+                                    MarkdownBlockView(
+                                        block = blocks[idx],
+                                        onNavigateToNote = { id -> onNavigateToNote?.invoke(id) },
+                                        onWikiLinkClick = { title ->
+                                            scope.launch {
+                                                val n = viewModel.getNoteByTitle(title)
+                                                if (n != null) onNavigateToNote?.invoke(n.id)
+                                                else Toast.makeText(context, "Note \"$title\" not found", Toast.LENGTH_SHORT).show()
+                                            }
+                                        }
+                                    )
+                                }
+                            }
+                        } else {
+                            // Images row at top of card if present
+                            Column(modifier = Modifier.fillMaxSize()) {
+                                if (images.isNotEmpty()) {
+                                    LazyRow(
+                                        modifier = Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, top = 20.dp),
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        items(images) { uri ->
+                                            Box {
+                                                AsyncImage(
+                                                    model = uri,
+                                                    contentDescription = null,
+                                                    modifier = Modifier.size(72.dp).clip(RoundedCornerShape(12.dp)).clickable { onImageClick(uri) },
+                                                    contentScale = ContentScale.Crop
+                                                )
+                                                IconButton(onClick = { images = images - uri }, modifier = Modifier.align(Alignment.TopEnd).size(20.dp)) {
+                                                    Icon(Icons.Default.Close, null, tint = Color.White, modifier = Modifier.size(14.dp))
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                                Box(
+                                    modifier = Modifier.weight(1f).fillMaxWidth()
+                                ) {
+                                    androidx.compose.foundation.text.BasicTextField(
+                                        value = content,
+                                        onValueChange = { nv ->
+                                            if (nv.text.endsWith("[[") && !content.text.endsWith("[[")) {
+                                                Toast.makeText(context, "Wiki Link: Type note title inside [[]]", Toast.LENGTH_SHORT).show()
+                                            }
+                                            if (nv.text.startsWith("[] ") || nv.text.startsWith("- [] ") || nv.text.startsWith("- [ ] ")) {
+                                                if (content.text.isBlank() || nv.text.length <= 6) {
+                                                    isChecklist = true
+                                                    content = TextFieldValue("")
+                                                    return@BasicTextField
+                                                }
+                                            }
+                                            content = nv
+                                        },
+                                        textStyle = MaterialTheme.typography.bodyLarge.copy(color = MaterialTheme.colorScheme.onSurface, lineHeight = 24.sp),
+                                        modifier = Modifier.fillMaxSize().padding(horizontal = 24.dp, vertical = 24.dp).verticalScroll(rememberScrollState()),
+                                        cursorBrush = SolidColor(Color.White)
+                                    )
+                                    if (content.text.isEmpty()) {
+                                        Text(
+                                            text = "Content\nabcdefghijklmnop\nqrstuvwxyz",
+                                            style = MaterialTheme.typography.bodyLarge.copy(color = contentPlaceholderColor, lineHeight = 24.sp),
+                                            modifier = Modifier.padding(horizontal = 24.dp, vertical = 24.dp)
+                                        )
+                                    }
+                                }
+                                if (backlinks.isNotEmpty()) {
+                                    HorizontalDivider(color = Color.White.copy(alpha = 0.08f), modifier = Modifier.padding(horizontal = 20.dp))
+                                    FlowRow(
+                                        modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 12.dp),
+                                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                                    ) {
+                                        backlinks.forEach { note ->
+                                            AssistChip(
+                                                onClick = { onNavigateToNote?.invoke(note.id) },
+                                                label = { Text(if (note.title.isNotBlank()) note.title else "Untitled", color = Color.White, style = MaterialTheme.typography.labelSmall) },
+                                                leadingIcon = { Icon(Icons.Default.Link, null, modifier = Modifier.size(14.dp), tint = Color.White) },
+                                                colors = AssistChipDefaults.assistChipColors(containerColor = Color.White.copy(alpha = 0.12f)),
+                                                border = null
+                                            )
+                                        }
+                                    }
+                                }
                             }
                         }
                     }
                 }
 
-                // DotPill (Always on top of the bars)
-                com.folius.dotnotes.ui.components.DotPill(
-                    isExpanded = isTitleExpanded,
-                    onExpandedChange = { isTitleExpanded = it },
-                    isMenuExpanded = isPillMenuExpanded,
-                    onMenuExpandedChange = { isPillMenuExpanded = it },
+                Spacer(modifier = Modifier.height(14.dp))
 
-                    searchText = title,
-                    onSearchTextChange = { title = it },
-                    onLongClick = { 
-                        scope.launch {
-                            linkedNoteIds = resolveWikiLinks(content.text, viewModel)
-                            viewModel.saveNote(
-                                id = currentNoteId,
-                                title = title,
-                                content = content.text,
-                                images = images,
-                                isChecklist = isChecklist,
-                                checklist = checklist,
-                                isSecret = isSecret,
-                                isPinned = isPinned,
-                                linkedNoteIds = linkedNoteIds,
-                                tags = tags,
-                                color = noteColor,
-                                clearColor = noteColor == null && currentNoteId != null && currentNoteId != -1,
-                                isMap = isMap,
-                                mapItems = mapItems
+                // Title pill — flat integrated menu (Image 1 base, tap to expand, still not floating overlay)
+                val pillHeight by animateDpAsState(targetValue = if (isPillMenuExpanded) 420.dp else 56.dp, animationSpec = spring(dampingRatio = 0.85f, stiffness = 300f), label = "pillH")
+                val pillShape = if (isPillMenuExpanded) RoundedCornerShape(32.dp) else RoundedCornerShape(50)
+                Surface(
+                    shape = pillShape,
+                    color = noteColor?.let { Color(it) } ?: pillBg,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(pillHeight)
+                        .pointerInput(isPillMenuExpanded) {
+                            var totalX = 0f
+                            var totalY = 0f
+                            detectDragGestures(
+                                onDragEnd = {
+                                    if (isPillMenuExpanded && totalY > 80) isPillMenuExpanded = false
+                                    else if (!isPillMenuExpanded && totalY < -80) isPillMenuExpanded = true
+                                    else if (!isPillMenuExpanded && totalX > 100) {
+                                        undoArrowTick = true; scope.launch { kotlinx.coroutines.delay(600); undoArrowTick = false }; handleUndo()
+                                    } else if (!isPillMenuExpanded && totalX < -100) {
+                                        redoArrowTick = true; scope.launch { kotlinx.coroutines.delay(600); redoArrowTick = false }; handleRedo()
+                                    }
+                                    totalX = 0f; totalY = 0f
+                                },
+                                onDragCancel = { totalX = 0f; totalY = 0f },
+                                onDrag = { change, dragAmount ->
+                                    change.consume()
+                                    totalX += dragAmount.x
+                                    totalY += dragAmount.y
+                                }
                             )
-                            Toast.makeText(context, "Saved", Toast.LENGTH_SHORT).show()
-                            onBack()
                         }
-                    },
-                    placeholderText = if (title.isBlank()) "Untitled Note" else title,
-                    onSwipeRight = { handleUndo() },
-                    onSwipeLeft = { handleRedo() },
-                    pillColor = noteColor?.let { Color(it) } ?: MaterialTheme.colorScheme.surface,
-                    actions = {
-                        IconButton(onClick = { isTitleExpanded = !isTitleExpanded }) {
-                            Icon(if (isTitleExpanded) Icons.Default.Close else Icons.Default.Edit, contentDescription = "Edit Title")
-                        }
-                    },
-                    menuContent = {
-                        val pillBgColor = noteColor?.let { Color(it) } ?: MaterialTheme.colorScheme.surface
-                        val contrastColor = if (pillBgColor.luminance() > 0.5f) Color.Black else Color.White
-
-                        Text("Note Actions", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = contrastColor, modifier = Modifier.padding(bottom = 16.dp))
-                        
-                        androidx.compose.foundation.layout.FlowRow(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(16.dp),
-                            verticalArrangement = Arrangement.spacedBy(16.dp)
-                        ) {
-                            val menuItems = listOf(
-                                Triple(Icons.Default.Palette, "Color", { isPillMenuExpanded = false; showColorPicker = true }),
-                                Triple(Icons.Default.Label, "Tags", { isPillMenuExpanded = false; showTagInput = true }),
-                                Triple(if (showMarkdownPreview) Icons.Default.EditNote else Icons.Default.Preview, if (showMarkdownPreview) "Edit" else "Preview", { isPillMenuExpanded = false; showMarkdownPreview = !showMarkdownPreview }),
-                                Triple(if (isSecret) Icons.Default.LockOpen else Icons.Default.Lock, if (isSecret) "Unlock" else "Lock", { isPillMenuExpanded = false; isSecret = !isSecret }),
-                                Triple(if (isPinned) Icons.Default.PushPin else Icons.Default.PushPin, if (isPinned) "Unpin" else "Pin", { isPillMenuExpanded = false; isPinned = !isPinned }),
-                                Triple(Icons.Default.Share, "Share", {
-                                    isPillMenuExpanded = false
-                                    val shareIntent = android.content.Intent().apply {
-                                        action = android.content.Intent.ACTION_SEND
-                                        putExtra(android.content.Intent.EXTRA_TEXT, "$title\n\n${content.text}")
-                                        type = "text/plain"
-                                    }
-                                    context.startActivity(android.content.Intent.createChooser(shareIntent, "Share Note"))
-                                }),
-                                Triple(Icons.Default.Image, "Add Image", {
-                                    isPillMenuExpanded = false
-                                    imagePicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
-                                }),
-                                Triple(if (isChecklist) Icons.Default.ListAlt else Icons.Default.CheckBox, if (isChecklist) "Text" else "Checklist", {
-                                    isPillMenuExpanded = false
-                                    if (!isChecklist) { // Converting Text to Checklist
-                                        if (content.text.isNotBlank()) {
-                                            val newItems = content.text.split("\n").filter { it.isNotBlank() }.map { ChecklistItem(text = it.trim()) }
-                                            checklist.clear()
-                                            checklist.addAll(newItems)
+                        .combinedClickable(
+                            interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
+                            indication = null,
+                            onLongClick = {
+                                scope.launch {
+                                    linkedNoteIds = resolveWikiLinks(content.text, viewModel)
+                                    viewModel.saveNote(
+                                        id = currentNoteId,
+                                        title = title,
+                                        content = content.text,
+                                        images = images,
+                                        isChecklist = isChecklist,
+                                        checklist = checklist,
+                                        isSecret = isSecret,
+                                        isPinned = isPinned,
+                                        linkedNoteIds = linkedNoteIds,
+                                        tags = tags,
+                                        color = noteColor,
+                                        clearColor = noteColor == null && currentNoteId != null && currentNoteId != -1,
+                                        isMap = isMap,
+                                        mapItems = mapItems
+                                    )
+                                    Toast.makeText(context, "Saved", Toast.LENGTH_SHORT).show()
+                                }
+                            },
+                            onClick = { isPillMenuExpanded = !isPillMenuExpanded; isTitleExpanded = false }
+                        )
+                ) {
+                    androidx.compose.animation.AnimatedContent(targetState = isPillMenuExpanded, label = "pillMenu") { expanded ->
+                        if (expanded) {
+                            Column(modifier = Modifier.fillMaxSize().padding(horizontal = 20.dp, vertical = 16.dp).verticalScroll(rememberScrollState())) {
+                                Box(modifier = Modifier.width(28.dp).height(3.dp).clip(CircleShape).background(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.25f)).align(Alignment.CenterHorizontally))
+                                Spacer(modifier = Modifier.height(18.dp))
+                                Text("Note actions", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold, letterSpacing = (-0.3).sp), color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.fillMaxWidth())
+                                Text("Tap an action • swipe pill to undo/redo", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f), modifier = Modifier.fillMaxWidth().padding(top = 2.dp, bottom = 14.dp))
+                                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.18f))
+                                Spacer(modifier = Modifier.height(6.dp))
+                                val menuItems = listOf(
+                                    Triple(Icons.Default.Palette, "Color", { isPillMenuExpanded = false; showColorPicker = true }),
+                                    Triple(Icons.Default.Label, "Tags", { isPillMenuExpanded = false; showTagInput = true }),
+                                    Triple(if (showMarkdownPreview) Icons.Default.EditNote else Icons.Default.Preview, if (showMarkdownPreview) "Edit" else "Preview", { isPillMenuExpanded = false; showMarkdownPreview = !showMarkdownPreview }),
+                                    Triple(if (isSecret) Icons.Default.LockOpen else Icons.Default.Lock, if (isSecret) "Unlock" else "Lock", { isPillMenuExpanded = false; isSecret = !isSecret }),
+                                    Triple(if (isPinned) Icons.Default.PushPin else Icons.Default.BookmarkBorder, if (isPinned) "Unpin" else "Pin", { isPillMenuExpanded = false; isPinned = !isPinned }),
+                                    Triple(Icons.Default.Share, "Share", {
+                                        isPillMenuExpanded = false
+                                        val i = android.content.Intent().apply { action = android.content.Intent.ACTION_SEND; putExtra(android.content.Intent.EXTRA_TEXT, "$title\n\n${content.text}"); type = "text/plain" }
+                                        context.startActivity(android.content.Intent.createChooser(i, "Share Note"))
+                                    }),
+                                    Triple(Icons.Default.Image, "Image", { isPillMenuExpanded = false; imagePicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }),
+                                    Triple(if (isChecklist) Icons.Default.Notes else Icons.Default.CheckBox, if (isChecklist) "Text" else "Checklist", { isPillMenuExpanded = false; if (!isChecklist) { if (content.text.isNotBlank()) { val n = content.text.split("\n").filter{it.isNotBlank()}.map{ ChecklistItem(text=it.trim()) }; checklist.clear(); checklist.addAll(n) }; content = TextFieldValue("") } else { if (checklist.isNotEmpty()) { val nt = checklist.joinToString("\n"){ (if(it.isChecked)"- [x] " else "- [ ] ")+it.text }; content = TextFieldValue(nt, selection=TextRange(nt.length)) }; checklist.clear() }; isChecklist=!isChecklist }),
+                                    Triple(Icons.Default.Hub, "Map", { isPillMenuExpanded = false; showMapSelectionDialog = true }),
+                                    Triple(Icons.Default.ContentCopy, "Duplicate", { isPillMenuExpanded = false; scope.launch { val n=viewModel.getNoteById(currentNoteId?:-1); n?.let{viewModel.duplicateNote(it)}; Toast.makeText(context,"Duplicated",Toast.LENGTH_SHORT).show() } }),
+                                    Triple(Icons.Default.AutoAwesome, "AI Assist", { isPillMenuExpanded = false; showAiChat = true }),
+                                    Triple(Icons.Default.DeleteOutline, "Delete", { isPillMenuExpanded = false; val id=currentNoteId?:existingNote?.id; id?.let{viewModel.trashNoteById(it)}; onBack() })
+                                )
+                                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                    menuItems.forEachIndexed { index, item ->
+                                        val icon = item.first
+                                        val label = item.second
+                                        val onClick = item.third
+                                        val isDestructive = label == "Delete"
+                                        val shape = when {
+                                            menuItems.size <= 1 -> androidx.compose.foundation.shape.RoundedCornerShape(28.dp)
+                                            index == 0 -> androidx.compose.foundation.shape.RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp, bottomStart = 6.dp, bottomEnd = 6.dp)
+                                            index == menuItems.size - 1 -> androidx.compose.foundation.shape.RoundedCornerShape(topStart = 6.dp, topEnd = 6.dp, bottomStart = 28.dp, bottomEnd = 28.dp)
+                                            else -> androidx.compose.foundation.shape.RoundedCornerShape(6.dp)
                                         }
-                                        content = TextFieldValue("")
-                                    } else { // Converting Checklist to Text
-                                        if (checklist.isNotEmpty()) {
-                                            val newText = checklist.joinToString("\n") { (if (it.isChecked) "- [x] " else "- [ ] ") + it.text }
-                                            content = TextFieldValue(newText, selection = TextRange(newText.length))
-                                        }
-                                        checklist.clear()
-                                    }
-                                    isChecklist = !isChecklist
-                                }),
-                                Triple(Icons.Default.Map, "Add to Map", {
-                                    isPillMenuExpanded = false
-                                    showMapSelectionDialog = true
-                                }),
-                                Triple(Icons.Default.ContentCopy, "Duplicate", {
-                                    isPillMenuExpanded = false
-                                    scope.launch {
-                                        val note = viewModel.getNoteById(currentNoteId ?: -1)
-                                        note?.let { viewModel.duplicateNote(it) }
-                                        Toast.makeText(context, "Duplicated", Toast.LENGTH_SHORT).show()
-                                    }
-                                }),
-                                Triple(Icons.Default.AutoAwesome, "AI Assist", {
-                                    isPillMenuExpanded = false
-                                    showAiChat = true
-                                }),
-                                Triple(Icons.Default.Delete, "Delete", {
-                                    isPillMenuExpanded = false
-                                    val idToDelete = currentNoteId ?: existingNote?.id
-                                    idToDelete?.let { viewModel.trashNoteById(it) }
-                                    onBack()
-                                })
-                            )
-
-                            menuItems.forEach { (icon, label, onClick) ->
-                                Column(
-                                    horizontalAlignment = Alignment.CenterHorizontally,
-                                    modifier = Modifier
-                                        .width(80.dp)
-                                        .clip(MaterialTheme.shapes.small)
-                                        .clickable { onClick() }
-                                        .padding(8.dp)
-                                ) {
-                                    Box(
-                                        contentAlignment = Alignment.Center,
-                                        modifier = Modifier.size(48.dp)
+                                        androidx.compose.material3.Card(
+                                            shape = shape,
+                                            colors = androidx.compose.material3.CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+                                            elevation = androidx.compose.material3.CardDefaults.cardElevation(defaultElevation = 0.dp),
+                                            modifier = Modifier.fillMaxWidth().clickable { onClick() }
+                                        ) {
+                                            Row(
+                                                modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 14.dp),
+                                        verticalAlignment = Alignment.CenterVertically
                                     ) {
-                                        Icon(
-                                            icon, 
-                                            null, 
-                                            tint = contrastColor, 
-                                            modifier = Modifier.size(28.dp)
+                                        Box(modifier = Modifier.size(32.dp).clip(RoundedCornerShape(10.dp)).background(if (isDestructive) MaterialTheme.colorScheme.error.copy(alpha = 0.12f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f)), contentAlignment = Alignment.Center) {
+                                            Icon(icon, null, tint = if (isDestructive) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
+                                        }
+                                        Spacer(modifier = Modifier.width(14.dp))
+                                        Text(label, style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium), color = if (isDestructive) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface, modifier = Modifier.weight(1f))
+                                        Icon(Icons.Filled.KeyboardArrowRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f), modifier = Modifier.size(18.dp))
+                                    }
+                                        }
+                                    }
+                                }
+                                Spacer(modifier = Modifier.height(14.dp))
+                                Box(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)).padding(horizontal = 12.dp, vertical = 10.dp), contentAlignment = Alignment.Center) {
+                                    Text("Long-press pill to save  •  Swipe to undo/redo", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                                }
+                            }
+                        } else {
+                            Box(modifier = Modifier.fillMaxSize().padding(horizontal = 12.dp), contentAlignment = Alignment.Center) {
+                                Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
+                                    Box(modifier = Modifier.size(28.dp).graphicsLayer(scaleX = undoArrowScale, scaleY = undoArrowScale, alpha = undoArrowAlpha).clip(CircleShape).background(MaterialTheme.colorScheme.primary.copy(alpha = 0.14f)), contentAlignment = Alignment.Center) {
+                                        Icon(Icons.AutoMirrored.Filled.Undo, contentDescription = "Undo", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
+                                    }
+                                    Box(modifier = Modifier.weight(1f).padding(horizontal = 8.dp), contentAlignment = Alignment.Center) {
+                                        androidx.compose.foundation.text.BasicTextField(
+                                            value = title,
+                                            onValueChange = { title = it },
+                                            singleLine = true,
+                                            textStyle = MaterialTheme.typography.titleMedium.copy(color=MaterialTheme.colorScheme.onSurface, textAlign=androidx.compose.ui.text.style.TextAlign.Center, fontWeight=FontWeight.Medium),
+                                            cursorBrush = androidx.compose.ui.graphics.SolidColor(MaterialTheme.colorScheme.onSurface),
+                                            modifier = Modifier.fillMaxWidth(),
+                                            decorationBox = { inner -> Box(contentAlignment=Alignment.Center, modifier=Modifier.fillMaxWidth()) { if (title.isEmpty()) Text("title", style=MaterialTheme.typography.titleMedium.copy(color=MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha=0.8f), textAlign=androidx.compose.ui.text.style.TextAlign.Center, fontWeight=FontWeight.Medium)); inner() } }
                                         )
                                     }
-                                    Spacer(modifier = Modifier.height(4.dp))
-                                    Text(label, style = MaterialTheme.typography.labelSmall, color = contrastColor)
+                                    Box(modifier = Modifier.size(28.dp).graphicsLayer(scaleX = redoArrowScale, scaleY = redoArrowScale, alpha = redoArrowAlpha).clip(CircleShape).background(MaterialTheme.colorScheme.tertiary.copy(alpha = 0.14f)), contentAlignment = Alignment.Center) {
+                                        Icon(Icons.AutoMirrored.Filled.Redo, contentDescription = "Redo", tint = MaterialTheme.colorScheme.tertiary, modifier = Modifier.size(16.dp))
+                                    }
                                 }
                             }
                         }
-                    }
-                )
-
-                Spacer(modifier = Modifier.height(8.dp))
-                
-                // Animated transition between EditorToolbar and PinnedNotesBar
-                androidx.compose.animation.AnimatedVisibility(
-                    visible = !isPillMenuExpanded && !isTitleExpanded,
-                    enter = androidx.compose.animation.fadeIn() + androidx.compose.animation.expandVertically(expandFrom = Alignment.Top),
-                    exit = androidx.compose.animation.fadeOut() + androidx.compose.animation.shrinkVertically(shrinkTowards = Alignment.Top)
-                ) {
-                    AnimatedContent(
-                        targetState = keyboardVisible,
-                    transitionSpec = {
-                        (fadeIn(animationSpec = tween(220, delayMillis = 90)) + scaleIn(initialScale = 0.92f, animationSpec = tween(220, delayMillis = 90)))
-                            .togetherWith(fadeOut(animationSpec = tween(90)))
-                    },
-                    label = "ToolbarConversion"
-                ) { isKeyboardUp ->
-                    if (isKeyboardUp) {
-                        EditorToolbar(
-                            isVisible = true,
-                            onBold = { insertMarkdown("**", "**") },
-                            onItalic = { insertMarkdown("*", "*") },
-                            onStrikethrough = { insertMarkdown("~~", "~~") },
-                            onH1 = { insertLinePrefix("# ") },
-                            onH2 = { insertLinePrefix("## ") },
-                            onCode = { insertMarkdown("`", "`") },
-                            onUndo = { handleUndo() },
-                            onRedo = { handleRedo() },
-                            onLink = { insertMarkdown("[[", "]]") },
-                            onCamera = { 
-                                val file = java.io.File(context.cacheDir, "camera_${System.currentTimeMillis()}.jpg")
-                                val uri = androidx.core.content.FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
-                                cameraImageUri = uri
-                                cameraLauncher.launch(uri)
-                            },
-                            onGallery = { 
-                                imagePicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
-                            },
-                            onChecklist = { 
-                                if (!isChecklist) {
-                                    if (content.text.isNotBlank()) {
-                                        val newItems = content.text.split("\n").filter { it.isNotBlank() }.map { ChecklistItem(text = it.trim()) }
-                                        checklist.clear()
-                                        checklist.addAll(newItems)
-                                    }
-                                    content = TextFieldValue("")
-                                } else {
-                                    if (checklist.isNotEmpty()) {
-                                        val newText = checklist.joinToString("\n") { (if (it.isChecked) "- [x] " else "- [ ] ") + it.text }
-                                        content = TextFieldValue(newText, selection = TextRange(newText.length))
-                                    }
-                                    checklist.clear()
-                                }
-                                isChecklist = !isChecklist
-                            }
-                        )
-                    } else {
-                        PinnedNotesBar(
-                            pinnedNotes = pinnedNotes,
-                            activeNoteId = currentNoteId,
-                            onNoteClick = { note -> 
-                                if (note.id != currentNoteId) {
-                                    onNavigateToNote?.invoke(note.id)
-                                }
-                            },
-                            onNoteRemove = { viewModel.toggleNotePinnedStatus(it) },
-                            onNewNote = { onBack(); viewModel.onSearchQueryChange("") }
-                        )
                     }
                 }
             }
         }
-        }
     }
+
 
 
 

@@ -63,7 +63,7 @@ fun DotPill(
     val pillVerticalOffset = remember { Animatable(0f) }
     
     val animatedPillWidthDp by animateDpAsState(
-        targetValue = if (isMenuExpanded || isExpanded) 340.dp else 220.dp,
+        targetValue = if (isMenuExpanded || isExpanded) 340.dp else 340.dp,
         animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow),
         label = "pillWidth"
     )

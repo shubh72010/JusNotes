@@ -1,18 +1,30 @@
 package com.folius.dotnotes.ui
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.graphics.Color
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DeleteForever
 import androidx.compose.material.icons.filled.RestoreFromTrash
+import androidx.compose.animation.*
+import androidx.compose.animation.core.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -30,112 +42,80 @@ fun TrashScreen(
     var isPillMenuExpanded by remember { mutableStateOf(false) }
     var showEmptyTrashDialog by remember { mutableStateOf(false) }
 
-    Scaffold { padding ->
-        Box(modifier = Modifier.fillMaxSize().padding(padding)) {
-            if (deletedNotes.isEmpty()) {
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Icon(
-                            Icons.Default.Delete,
-                            contentDescription = null,
-                            modifier = Modifier.size(48.dp),
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Text("Trash is empty", style = MaterialTheme.typography.bodyLarge)
-                        Text(
-                            "Deleted notes are kept for 30 days",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+
+    val outerBg = MaterialTheme.colorScheme.background
+    val cardBg = MaterialTheme.colorScheme.surfaceContainer
+    val pillBg = MaterialTheme.colorScheme.surfaceContainerHighest
+    Scaffold(containerColor = outerBg) { padding ->
+        Box(
+            modifier = Modifier.fillMaxSize().padding(padding).background(outerBg).padding(horizontal = 16.dp, vertical = 12.dp)
+        ) {
+            Column(modifier = Modifier.fillMaxSize()) {
+                Surface(shape = RoundedCornerShape(32.dp), color = cardBg, modifier = Modifier.weight(1f).fillMaxWidth()) {
+                    Box(modifier = Modifier.fillMaxSize()) {
+                        if (deletedNotes.isEmpty()) {
+                            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Icon(Icons.Default.Delete, null, modifier = Modifier.size(48.dp), tint = Color.White.copy(alpha = 0.6f))
+                                    Spacer(modifier = Modifier.height(16.dp))
+                                    Text("Trash is empty", style = MaterialTheme.typography.bodyLarge.copy(color = Color.White))
+                                    Text("Deleted notes are kept for 30 days", style = MaterialTheme.typography.bodySmall.copy(color = Color.White.copy(alpha = 0.6f)))
+                                }
+                            }
+                        } else {
+                            LazyColumn(modifier = Modifier.fillMaxSize().padding(20.dp), contentPadding = PaddingValues(bottom = 16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                                item { Text("${deletedNotes.size} item${if (deletedNotes.size != 1) "s" else ""} in trash", style = MaterialTheme.typography.labelMedium.copy(color = Color.White.copy(alpha = 0.6f))) }
+                                items(deletedNotes, key = { it.id }) { note ->
+                                    TrashNoteItem(note = note, onRestore = { viewModel.restoreNote(note) }, onPermanentDelete = { viewModel.permanentlyDeleteNote(note) })
+                                }
+                            }
+                        }
                     }
                 }
-            } else {
-                LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(16.dp, 16.dp, 16.dp, 100.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    item {
-                        Text(
-                            "${deletedNotes.size} item${if (deletedNotes.size != 1) "s" else ""} in trash",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(bottom = 4.dp)
+                Spacer(modifier = Modifier.height(14.dp))
+
+                val trashH by androidx.compose.animation.core.animateDpAsState(targetValue = if (isPillMenuExpanded) 200.dp else 56.dp, animationSpec = androidx.compose.animation.core.spring(dampingRatio=0.85f, stiffness=300f), label="trashH")
+                val trashS = if (isPillMenuExpanded) RoundedCornerShape(32.dp) else RoundedCornerShape(50)
+                Surface(shape = trashS, color = pillBg, modifier = Modifier.fillMaxWidth().height(trashH)
+                    .pointerInput(Unit) {
+                        var dX = 0f
+                        var dY = 0f
+                        detectDragGestures(
+                            onDragEnd = {
+                                if (isPillMenuExpanded && dY > 80) isPillMenuExpanded = false
+                                else if (dY < -80) isPillMenuExpanded = true
+                                else if (!isPillMenuExpanded && kotlin.math.abs(dX)>80) onBack()
+                                dX = 0f; dY = 0f
+                            },
+                            onDragCancel = { dX = 0f; dY = 0f },
+                            onDrag = { change, amt ->
+                                change.consume()
+                                dX += amt.x
+                                dY += amt.y
+                            }
                         )
                     }
-
-                    items(deletedNotes, key = { it.id }) { note ->
-                        TrashNoteItem(
-                            note = note,
-                            onRestore = { viewModel.restoreNote(note) },
-                            onPermanentDelete = { viewModel.permanentlyDeleteNote(note) }
-                        )
+                    .combinedClickable(interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }, indication = null, onLongClick={}, onClick={ onBack() })) {
+                    androidx.compose.animation.AnimatedContent(targetState = isPillMenuExpanded, label="trashMenu") { exp ->
+                        if (exp) {
+                            Column(modifier=Modifier.fillMaxSize().padding(16.dp), horizontalAlignment=Alignment.CenterHorizontally) {
+                                Box(modifier=Modifier.width(32.dp).height(4.dp).clip(CircleShape).background(Color.White.copy(alpha=0.3f)))
+                                Spacer(modifier=Modifier.height(12.dp))
+                                if (deletedNotes.isNotEmpty()) { Button(onClick={ isPillMenuExpanded=false; showEmptyTrashDialog=true }, modifier=Modifier.fillMaxWidth(), colors=ButtonDefaults.buttonColors(containerColor=MaterialTheme.colorScheme.error)) { Text("Empty Trash") } }
+                                OutlinedButton(onClick={ isPillMenuExpanded=false; onBack() }, modifier=Modifier.fillMaxWidth()) { Text("Back", color=Color.White) }
+                                TextButton(onClick={isPillMenuExpanded=false}) { Text("Close", color=Color.White) }
+                            }
+                        } else {
+                            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                                Text("trash", style = MaterialTheme.typography.titleMedium.copy(color = MaterialTheme.colorScheme.onSurface, textAlign = androidx.compose.ui.text.style.TextAlign.Center))
+                            }
+                        }
                     }
                 }
             }
-
-            // DotPill overlay at bottom
-            com.folius.dotnotes.ui.components.DotPill(
-                modifier = Modifier.align(Alignment.BottomCenter),
-                placeholderText = "Trash",
-                isMenuExpanded = isPillMenuExpanded,
-                onMenuExpandedChange = { isPillMenuExpanded = it },
-                onSwipeRight = onBack,
-                menuContent = {
-                    val contrastColor = MaterialTheme.colorScheme.onSurface
-                    Text("Trash Actions", style = MaterialTheme.typography.titleMedium, color = contrastColor, modifier = Modifier.padding(bottom = 16.dp))
-                    
-                    androidx.compose.foundation.layout.FlowRow(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(16.dp)
-                    ) {
-                        if (deletedNotes.isNotEmpty()) {
-                            Column(
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                                modifier = Modifier
-                                    .width(80.dp)
-                                    .clip(MaterialTheme.shapes.small)
-                                    .clickable { 
-                                        isPillMenuExpanded = false
-                                        showEmptyTrashDialog = true 
-                                    }
-                                    .padding(8.dp)
-                            ) {
-                                Box(contentAlignment = Alignment.Center, modifier = Modifier.size(48.dp)) {
-                                    Icon(Icons.Default.DeleteForever, null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(28.dp))
-                                }
-                                Spacer(modifier = Modifier.height(4.dp))
-                                Text("Empty", style = MaterialTheme.typography.labelSmall, color = contrastColor)
-                            }
-                        }
-                        
-                        Column(
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            modifier = Modifier
-                                .width(80.dp)
-                                .clip(MaterialTheme.shapes.small)
-                                .clickable { 
-                                    isPillMenuExpanded = false
-                                    onBack() 
-                                }
-                                .padding(8.dp)
-                        ) {
-                            Box(contentAlignment = Alignment.Center, modifier = Modifier.size(48.dp)) {
-                                Icon(Icons.Default.ArrowBack, null, tint = contrastColor, modifier = Modifier.size(28.dp))
-                            }
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Text("Back", style = MaterialTheme.typography.labelSmall, color = contrastColor)
-                        }
-                    }
-                }
-            )
         }
     }
+
 
     if (showEmptyTrashDialog) {
         AlertDialog(

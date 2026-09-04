@@ -23,10 +23,14 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
 import coil.ImageLoader
 import coil.compose.AsyncImage
@@ -45,56 +49,34 @@ fun ImageViewerScreen(
     val scope = rememberCoroutineScope()
     var isSaving by remember { mutableStateOf(false) }
 
-    Scaffold(
-        topBar = {
+    val outerBg = MaterialTheme.colorScheme.background
+    val cardBg = MaterialTheme.colorScheme.surfaceContainer
+    val pillBg = MaterialTheme.colorScheme.surfaceContainerHighest
+    Scaffold(containerColor = outerBg, topBar = {
             TopAppBar(
-                title = {},
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = Color.White)
-                    }
-                },
+                title = { Text("image", color = Color.White) },
+                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = Color.White) } },
                 actions = {
-                    IconButton(
-                        onClick = {
-                            if (!isSaving) {
-                                isSaving = true
-                                scope.launch {
-                                    saveImageToGallery(context, imageUri)
-                                    isSaving = false
-                                }
-                            }
-                        }
-                    ) {
-                        if (isSaving) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(24.dp),
-                                color = Color.White,
-                                strokeWidth = 2.dp
-                            )
-                        } else {
-                            Icon(Icons.Default.Download, contentDescription = "Download", tint = Color.White)
-                        }
+                    IconButton(onClick = {
+                        if (!isSaving) { isSaving = true; scope.launch { saveImageToGallery(context, imageUri); isSaving = false } }
+                    }) {
+                        if (isSaving) CircularProgressIndicator(modifier = Modifier.size(24.dp), color = Color.White, strokeWidth = 2.dp)
+                        else Icon(Icons.Default.Download, contentDescription = "Download", tint = Color.White)
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.scrim.copy(alpha = 0.5f),
-                    navigationIconContentColor = Color.White,
-                    actionIconContentColor = Color.White
-                )
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = outerBg, navigationIconContentColor = Color.White, actionIconContentColor = Color.White)
             )
-        },
-        containerColor = MaterialTheme.colorScheme.scrim
-    ) { padding ->
+        }) { padding ->
         var scale by remember { mutableStateOf(1f) }
         var rotation by remember { mutableStateOf(0f) }
         var offset by remember { mutableStateOf(Offset.Zero) }
 
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .clipToBounds()
+        Column(modifier = Modifier.fillMaxSize().padding(padding).background(outerBg).padding(horizontal = 16.dp, vertical = 12.dp)) {
+            androidx.compose.material3.Surface(shape = androidx.compose.foundation.shape.RoundedCornerShape(32.dp), color = cardBg, modifier = Modifier.weight(1f).fillMaxWidth().clip(androidx.compose.foundation.shape.RoundedCornerShape(32.dp))) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .clipToBounds()
                 .pointerInput(Unit) {
                     detectTransformGestures { _, pan, zoom, rotate ->
                         scale *= zoom
@@ -114,22 +96,35 @@ fun ImageViewerScreen(
             contentAlignment = Alignment.Center
         ) {
             AsyncImage(
-                model = imageUri,
-                contentDescription = null,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .graphicsLayer {
-                        scaleX = maxOf(1f, scale)
-                        scaleY = maxOf(1f, scale)
-                        rotationZ = rotation
-                        translationX = offset.x * scale
-                        translationY = offset.y * scale
-                    },
-                contentScale = ContentScale.Fit
-            )
+                    model = imageUri,
+                    contentDescription = null,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .graphicsLayer {
+                            scaleX = maxOf(1f, scale)
+                            scaleY = maxOf(1f, scale)
+                            rotationZ = rotation
+                            translationX = offset.x * scale
+                            translationY = offset.y * scale
+                        },
+                    contentScale = ContentScale.Fit
+                )
+            }
+            }
+                Spacer(modifier = Modifier.height(14.dp))
+
+                val imgH by androidx.compose.animation.core.animateDpAsState(targetValue = if (false) 200.dp else 56.dp, label="imgH")
+                Surface(shape = androidx.compose.foundation.shape.RoundedCornerShape(50), color = pillBg, modifier = Modifier.fillMaxWidth().height(56.dp)
+                    .pointerInput(Unit) { var d=0f; detectHorizontalDragGestures(onDragEnd={ if (kotlin.math.abs(d)>80) onBack(); d=0f }, onDragCancel={d=0f}, onHorizontalDrag={_,a->d+=a}) }
+                    .combinedClickable(interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }, indication = null, onLongClick={}, onClick={ onBack() }) ) {
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Text("image", style = MaterialTheme.typography.titleMedium.copy(color = MaterialTheme.colorScheme.onSurface, textAlign = androidx.compose.ui.text.style.TextAlign.Center))
+                    }
+                }
+            }
         }
     }
-}
+
 
 private suspend fun saveImageToGallery(context: Context, imageUri: String) {
     try {

@@ -55,7 +55,11 @@ fun SettingsScreen(
         animationsEnabled = animationsEnabledPref
         selectedTheme = currentTheme
         hasInitialized = true
-    }
+
+    // Material You colors
+    val outerBg = MaterialTheme.colorScheme.background
+    val cardBg = MaterialTheme.colorScheme.surfaceContainer
+    val pillBg = MaterialTheme.colorScheme.surfaceContainerHighest
 
     val attemptBack = { onBack() }
 
@@ -68,6 +72,35 @@ fun SettingsScreen(
                 it,
                 Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
             )
+        // Pill overlay — does not push header/list
+        val searchFocusRequester = remember { androidx.compose.ui.focus.FocusRequester() }
+        val listPillH by androidx.compose.animation.core.animateDpAsState(targetValue = if (false) 320.dp else 56.dp, animationSpec = androidx.compose.animation.core.spring(dampingRatio = 0.85f, stiffness = 300f), label = "listH")
+        val listPillS = if (false) androidx.compose.foundation.shape.RoundedShape(50) else androidx.compose.foundation.shape.RoundedShape(50)
+        androidx.compose.animation.AnimatedVisibility(
+            visible = true,
+            modifier = androidx.compose.ui.Modifier.align(androidx.compose.ui.Alignment.BottomCenter).androidx.compose.ui.Modifier.padding(horizontal = 16.dp, vertical = 12.dp).androidx.compose.ui.Modifier.imePadding(),
+            enter = androidx.compose.animation.fadeIn(),
+            exit = androidx.compose.animation.fadeOut()
+        ) {
+            androidx.compose.foundation.layout.Surface(shape = listPillS, color = pillBg, modifier = androidx.compose.ui.Modifier.fillMaxWidth().height(56.dp)
+            ) {
+                // Pill content - simple placeholder for now
+                androidx.compose.foundation.layout.Row(
+                    modifier = androidx.compose.ui.Modifier
+                        .padding(16.dp)
+                        .fillMaxWidth()
+                ) {
+                    androidx.compose.material.icons.Icons.Default.Settings
+                    androidx.compose.foundation.layout.Spacer(modifier = androidx.compose.ui.Modifier.width(12.dp))
+                    androidx.compose.material3.Text(
+                        text = "Settings",
+                        style = androidx.compose.material3.MaterialTheme.typography.bodyLarge,
+                        color = androidx.compose.material3.MaterialTheme.colorScheme.onSurface
+                    )
+                }
+            }
+        }
+
         }
     }
 
@@ -77,7 +110,65 @@ fun SettingsScreen(
         if (uris.isNotEmpty()) {
             viewModel.importNotes(uris) { count ->
                 Toast.makeText(context, "Imported $count note${if (count != 1) "s" else ""}", Toast.LENGTH_SHORT).show()
+        // Pill overlay — does not push header/list
+        val searchFocusRequester = remember { androidx.compose.ui.focus.FocusRequester() }
+        val listPillH by androidx.compose.animation.core.animateDpAsState(targetValue = if (false) 320.dp else 56.dp, animationSpec = androidx.compose.animation.core.spring(dampingRatio = 0.85f, stiffness = 300f), label = "listH")
+        val listPillS = if (false) androidx.compose.foundation.shape.RoundedShape(50) else androidx.compose.foundation.shape.RoundedShape(50)
+        androidx.compose.animation.AnimatedVisibility(
+            visible = true,
+            modifier = androidx.compose.ui.Modifier.align(androidx.compose.ui.Alignment.BottomCenter).androidx.compose.ui.Modifier.padding(horizontal = 16.dp, vertical = 12.dp).androidx.compose.ui.Modifier.imePadding(),
+            enter = androidx.compose.animation.fadeIn(),
+            exit = androidx.compose.animation.fadeOut()
+        ) {
+            androidx.compose.foundation.layout.Surface(shape = listPillS, color = pillBg, modifier = androidx.compose.ui.Modifier.fillMaxWidth().height(56.dp)
+            ) {
+                // Pill content - simple placeholder for now
+                androidx.compose.foundation.layout.Row(
+                    modifier = androidx.compose.ui.Modifier
+                        .padding(16.dp)
+                        .fillMaxWidth()
+                ) {
+                    androidx.compose.material.icons.Icons.Default.Settings
+                    androidx.compose.foundation.layout.Spacer(modifier = androidx.compose.ui.Modifier.width(12.dp))
+                    androidx.compose.material3.Text(
+                        text = "Settings",
+                        style = androidx.compose.material3.MaterialTheme.typography.bodyLarge,
+                        color = androidx.compose.material3.MaterialTheme.colorScheme.onSurface
+                    )
+                }
             }
+        }
+
+            }
+        // Pill overlay — does not push header/list
+        val searchFocusRequester = remember { androidx.compose.ui.focus.FocusRequester() }
+        val listPillH by androidx.compose.animation.core.animateDpAsState(targetValue = if (false) 320.dp else 56.dp, animationSpec = androidx.compose.animation.core.spring(dampingRatio = 0.85f, stiffness = 300f), label = "listH")
+        val listPillS = if (false) androidx.compose.foundation.shape.RoundedShape(50) else androidx.compose.foundation.shape.RoundedShape(50)
+        androidx.compose.animation.AnimatedVisibility(
+            visible = true,
+            modifier = androidx.compose.ui.Modifier.align(androidx.compose.ui.Alignment.BottomCenter).androidx.compose.ui.Modifier.padding(horizontal = 16.dp, vertical = 12.dp).androidx.compose.ui.Modifier.imePadding(),
+            enter = androidx.compose.animation.fadeIn(),
+            exit = androidx.compose.animation.fadeOut()
+        ) {
+            androidx.compose.foundation.layout.Surface(shape = listPillS, color = pillBg, modifier = androidx.compose.ui.Modifier.fillMaxWidth().height(56.dp)
+            ) {
+                // Pill content - simple placeholder for now
+                androidx.compose.foundation.layout.Row(
+                    modifier = androidx.compose.ui.Modifier
+                        .padding(16.dp)
+                        .fillMaxWidth()
+                ) {
+                    androidx.compose.material.icons.Icons.Default.Settings
+                    androidx.compose.foundation.layout.Spacer(modifier = androidx.compose.ui.Modifier.width(12.dp))
+                    androidx.compose.material3.Text(
+                        text = "Settings",
+                        style = androidx.compose.material3.MaterialTheme.typography.bodyLarge,
+                        color = androidx.compose.material3.MaterialTheme.colorScheme.onSurface
+                    )
+                }
+            }
+        }
+
         }
     }
 
@@ -130,6 +221,35 @@ fun SettingsScreen(
                             viewModel.saveSettings(apiKey, modelId, data.name, animationsEnabled)
                         }
                     )
+        // Pill overlay — does not push header/list
+        val searchFocusRequester = remember { androidx.compose.ui.focus.FocusRequester() }
+        val listPillH by androidx.compose.animation.core.animateDpAsState(targetValue = if (false) 320.dp else 56.dp, animationSpec = androidx.compose.animation.core.spring(dampingRatio = 0.85f, stiffness = 300f), label = "listH")
+        val listPillS = if (false) androidx.compose.foundation.shape.RoundedShape(50) else androidx.compose.foundation.shape.RoundedShape(50)
+        androidx.compose.animation.AnimatedVisibility(
+            visible = true,
+            modifier = androidx.compose.ui.Modifier.align(androidx.compose.ui.Alignment.BottomCenter).androidx.compose.ui.Modifier.padding(horizontal = 16.dp, vertical = 12.dp).androidx.compose.ui.Modifier.imePadding(),
+            enter = androidx.compose.animation.fadeIn(),
+            exit = androidx.compose.animation.fadeOut()
+        ) {
+            androidx.compose.foundation.layout.Surface(shape = listPillS, color = pillBg, modifier = androidx.compose.ui.Modifier.fillMaxWidth().height(56.dp)
+            ) {
+                // Pill content - simple placeholder for now
+                androidx.compose.foundation.layout.Row(
+                    modifier = androidx.compose.ui.Modifier
+                        .padding(16.dp)
+                        .fillMaxWidth()
+                ) {
+                    androidx.compose.material.icons.Icons.Default.Settings
+                    androidx.compose.foundation.layout.Spacer(modifier = androidx.compose.ui.Modifier.width(12.dp))
+                    androidx.compose.material3.Text(
+                        text = "Settings",
+                        style = androidx.compose.material3.MaterialTheme.typography.bodyLarge,
+                        color = androidx.compose.material3.MaterialTheme.colorScheme.onSurface
+                    )
+                }
+            }
+        }
+
                 }
             }
 
@@ -207,6 +327,35 @@ fun SettingsScreen(
                     Icon(Icons.Default.Backup, contentDescription = null)
                     Spacer(modifier = Modifier.width(8.dp))
                     Text("Backup Notes Now")
+        // Pill overlay — does not push header/list
+        val searchFocusRequester = remember { androidx.compose.ui.focus.FocusRequester() }
+        val listPillH by androidx.compose.animation.core.animateDpAsState(targetValue = if (false) 320.dp else 56.dp, animationSpec = androidx.compose.animation.core.spring(dampingRatio = 0.85f, stiffness = 300f), label = "listH")
+        val listPillS = if (false) androidx.compose.foundation.shape.RoundedShape(50) else androidx.compose.foundation.shape.RoundedShape(50)
+        androidx.compose.animation.AnimatedVisibility(
+            visible = true,
+            modifier = androidx.compose.ui.Modifier.align(androidx.compose.ui.Alignment.BottomCenter).androidx.compose.ui.Modifier.padding(horizontal = 16.dp, vertical = 12.dp).androidx.compose.ui.Modifier.imePadding(),
+            enter = androidx.compose.animation.fadeIn(),
+            exit = androidx.compose.animation.fadeOut()
+        ) {
+            androidx.compose.foundation.layout.Surface(shape = listPillS, color = pillBg, modifier = androidx.compose.ui.Modifier.fillMaxWidth().height(56.dp)
+            ) {
+                // Pill content - simple placeholder for now
+                androidx.compose.foundation.layout.Row(
+                    modifier = androidx.compose.ui.Modifier
+                        .padding(16.dp)
+                        .fillMaxWidth()
+                ) {
+                    androidx.compose.material.icons.Icons.Default.Settings
+                    androidx.compose.foundation.layout.Spacer(modifier = androidx.compose.ui.Modifier.width(12.dp))
+                    androidx.compose.material3.Text(
+                        text = "Settings",
+                        style = androidx.compose.material3.MaterialTheme.typography.bodyLarge,
+                        color = androidx.compose.material3.MaterialTheme.colorScheme.onSurface
+                    )
+                }
+            }
+        }
+
                 }
             }
 
@@ -242,6 +391,35 @@ fun SettingsScreen(
                 onSwipeLeft = attemptBack,
                 onSwipeUp = onSecretNotesClick
             )
+        // Pill overlay — does not push header/list
+        val searchFocusRequester = remember { androidx.compose.ui.focus.FocusRequester() }
+        val listPillH by androidx.compose.animation.core.animateDpAsState(targetValue = if (false) 320.dp else 56.dp, animationSpec = androidx.compose.animation.core.spring(dampingRatio = 0.85f, stiffness = 300f), label = "listH")
+        val listPillS = if (false) androidx.compose.foundation.shape.RoundedShape(50) else androidx.compose.foundation.shape.RoundedShape(50)
+        androidx.compose.animation.AnimatedVisibility(
+            visible = true,
+            modifier = androidx.compose.ui.Modifier.align(androidx.compose.ui.Alignment.BottomCenter).androidx.compose.ui.Modifier.padding(horizontal = 16.dp, vertical = 12.dp).androidx.compose.ui.Modifier.imePadding(),
+            enter = androidx.compose.animation.fadeIn(),
+            exit = androidx.compose.animation.fadeOut()
+        ) {
+            androidx.compose.foundation.layout.Surface(shape = listPillS, color = pillBg, modifier = androidx.compose.ui.Modifier.fillMaxWidth().height(56.dp)
+            ) {
+                // Pill content - simple placeholder for now
+                androidx.compose.foundation.layout.Row(
+                    modifier = androidx.compose.ui.Modifier
+                        .padding(16.dp)
+                        .fillMaxWidth()
+                ) {
+                    androidx.compose.material.icons.Icons.Default.Settings
+                    androidx.compose.foundation.layout.Spacer(modifier = androidx.compose.ui.Modifier.width(12.dp))
+                    androidx.compose.material3.Text(
+                        text = "Settings",
+                        style = androidx.compose.material3.MaterialTheme.typography.bodyLarge,
+                        color = androidx.compose.material3.MaterialTheme.colorScheme.onSurface
+                    )
+                }
+            }
+        }
+
         }
     }
 }
@@ -283,6 +461,35 @@ fun ThemeSquircleCard(
                     Row(modifier = Modifier.weight(1f)) {
                         Box(modifier = Modifier.weight(1f).fillMaxHeight().clip(RoundedCornerShape(bottomStart = 8.dp)).background(Color(0xFFFBBC05)))
                         Box(modifier = Modifier.weight(1f).fillMaxHeight().clip(RoundedCornerShape(bottomEnd = 8.dp)).background(Color(0xFF34A853)))
+        // Pill overlay — does not push header/list
+        val searchFocusRequester = remember { androidx.compose.ui.focus.FocusRequester() }
+        val listPillH by androidx.compose.animation.core.animateDpAsState(targetValue = if (false) 320.dp else 56.dp, animationSpec = androidx.compose.animation.core.spring(dampingRatio = 0.85f, stiffness = 300f), label = "listH")
+        val listPillS = if (false) androidx.compose.foundation.shape.RoundedShape(50) else androidx.compose.foundation.shape.RoundedShape(50)
+        androidx.compose.animation.AnimatedVisibility(
+            visible = true,
+            modifier = androidx.compose.ui.Modifier.align(androidx.compose.ui.Alignment.BottomCenter).androidx.compose.ui.Modifier.padding(horizontal = 16.dp, vertical = 12.dp).androidx.compose.ui.Modifier.imePadding(),
+            enter = androidx.compose.animation.fadeIn(),
+            exit = androidx.compose.animation.fadeOut()
+        ) {
+            androidx.compose.foundation.layout.Surface(shape = listPillS, color = pillBg, modifier = androidx.compose.ui.Modifier.fillMaxWidth().height(56.dp)
+            ) {
+                // Pill content - simple placeholder for now
+                androidx.compose.foundation.layout.Row(
+                    modifier = androidx.compose.ui.Modifier
+                        .padding(16.dp)
+                        .fillMaxWidth()
+                ) {
+                    androidx.compose.material.icons.Icons.Default.Settings
+                    androidx.compose.foundation.layout.Spacer(modifier = androidx.compose.ui.Modifier.width(12.dp))
+                    androidx.compose.material3.Text(
+                        text = "Settings",
+                        style = androidx.compose.material3.MaterialTheme.typography.bodyLarge,
+                        color = androidx.compose.material3.MaterialTheme.colorScheme.onSurface
+                    )
+                }
+            }
+        }
+
                     }
                 }
             } else {
@@ -304,6 +511,35 @@ fun ThemeSquircleCard(
                         .padding(6.dp)
                         .size(18.dp)
                 )
+        // Pill overlay — does not push header/list
+        val searchFocusRequester = remember { androidx.compose.ui.focus.FocusRequester() }
+        val listPillH by androidx.compose.animation.core.animateDpAsState(targetValue = if (false) 320.dp else 56.dp, animationSpec = androidx.compose.animation.core.spring(dampingRatio = 0.85f, stiffness = 300f), label = "listH")
+        val listPillS = if (false) androidx.compose.foundation.shape.RoundedShape(50) else androidx.compose.foundation.shape.RoundedShape(50)
+        androidx.compose.animation.AnimatedVisibility(
+            visible = true,
+            modifier = androidx.compose.ui.Modifier.align(androidx.compose.ui.Alignment.BottomCenter).androidx.compose.ui.Modifier.padding(horizontal = 16.dp, vertical = 12.dp).androidx.compose.ui.Modifier.imePadding(),
+            enter = androidx.compose.animation.fadeIn(),
+            exit = androidx.compose.animation.fadeOut()
+        ) {
+            androidx.compose.foundation.layout.Surface(shape = listPillS, color = pillBg, modifier = androidx.compose.ui.Modifier.fillMaxWidth().height(56.dp)
+            ) {
+                // Pill content - simple placeholder for now
+                androidx.compose.foundation.layout.Row(
+                    modifier = androidx.compose.ui.Modifier
+                        .padding(16.dp)
+                        .fillMaxWidth()
+                ) {
+                    androidx.compose.material.icons.Icons.Default.Settings
+                    androidx.compose.foundation.layout.Spacer(modifier = androidx.compose.ui.Modifier.width(12.dp))
+                    androidx.compose.material3.Text(
+                        text = "Settings",
+                        style = androidx.compose.material3.MaterialTheme.typography.bodyLarge,
+                        color = androidx.compose.material3.MaterialTheme.colorScheme.onSurface
+                    )
+                }
+            }
+        }
+
             }
         }
 

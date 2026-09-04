@@ -2,15 +2,28 @@ package com.folius.dotnotes.ui
 
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.foundation.Image
+import com.folius.dotnotes.R
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.filled.KeyboardArrowRight
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.CheckBox
@@ -38,6 +51,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
@@ -59,11 +73,23 @@ import com.folius.dotnotes.ui.components.PinnedSubpill
 import com.folius.dotnotes.ui.components.DotPill
 import com.folius.dotnotes.ui.components.PinnedNotesBar
 import com.folius.dotnotes.ui.components.TabSwitcherPill
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalContext
 import android.widget.Toast
 
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
+
+private val GroupLargeCorner = 28.dp
+private val GroupSmallCorner = 6.dp
+private fun segmentedShape(index: Int, count: Int): androidx.compose.ui.graphics.Shape =
+    when {
+        count <= 1 -> RoundedCornerShape(GroupLargeCorner)
+        index == 0 -> RoundedCornerShape(topStart = GroupLargeCorner, topEnd = GroupLargeCorner, bottomStart = GroupSmallCorner, bottomEnd = GroupSmallCorner)
+        index == count - 1 -> RoundedCornerShape(topStart = GroupSmallCorner, topEnd = GroupSmallCorner, bottomStart = GroupLargeCorner, bottomEnd = GroupLargeCorner)
+        else -> RoundedCornerShape(GroupSmallCorner)
+    }
 
 enum class DragAnchors {
     Settled,
@@ -75,7 +101,7 @@ enum class DragAnchors {
     EndToStart
 }
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class, ExperimentalFoundationApi::class)
 @Composable
 fun NoteListScreen(
     viewModel: NoteViewModel,
@@ -125,236 +151,211 @@ fun NoteListScreen(
         viewModel.setLoaded()
     }
 
-    Scaffold { padding ->
+    val outerBg = MaterialTheme.colorScheme.background
+    val cardBg = MaterialTheme.colorScheme.surfaceContainer
+    val pillBg = MaterialTheme.colorScheme.surfaceContainerHighest
+    Scaffold(containerColor = outerBg) { padding ->
         Box(
             modifier = Modifier
                 .padding(top = padding.calculateTopPadding())
                 .fillMaxSize()
+                .background(outerBg)
         ) {
-            Column(modifier = Modifier.fillMaxSize()) {
-                // Large Header
-                Text(
-                    text = "DotNotes",
-                    style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
-                    modifier = Modifier.padding(horizontal = 24.dp, vertical = 24.dp),
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-
-                if (selectedTab == NoteTab.SEARCH) {
-                    SearchAndMapsTab(
-                        viewModel = viewModel,
-                        mapNotes = mapNotes,
-                        selectedMapId = selectedMapId,
-                        searchQuery = searchQuery,
-                        notes = notes,
-                        isLoading = isLoading,
-                        onNoteClick = onNoteClick,
-                        onMapNoteClick = onMapNoteClick,
-                        onAddToMap = { note ->
-                            noteToAddToMap = note
-                            showMapSelectionDialog = true
-                        }
+                        Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 16.dp, vertical = 12.dp)
+                    .imePadding()
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 8.dp, vertical = 8.dp)
+                ) {
+                    Image(
+                        painter = androidx.compose.ui.res.painterResource(id = R.drawable.dotnotes_logo),
+                        contentDescription = "DotNotes logo",
+                        modifier = Modifier.size(48.dp).clip(RoundedCornerShape(10.dp)),
+                        contentScale = androidx.compose.ui.layout.ContentScale.Fit
                     )
-                } else {
-                    NoteListContent(
-                        notes = notes,
-                        isLoading = isLoading,
-                        searchQuery = searchQuery,
-                        viewModel = viewModel,
-                        onNoteClick = onNoteClick,
-                        onMapNoteClick = onMapNoteClick,
-                        onAddToMap = { noteToAddToMap = it },
-                        modifier = Modifier.weight(1f),
-                        showHint = showListHint,
-                        onDismissHint = { showListHint = false }
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Text(
+                        text = "DotNotes",
+                        style = MaterialTheme.typography.headlineLarge.copy(fontWeight = FontWeight.ExtraBold, letterSpacing = (-1.2).sp),
+                        color = MaterialTheme.colorScheme.onBackground
                     )
                 }
-            }
-
-            // Full-screen scrim when pill menu or search is expanded
-            if (isPillMenuExpanded || isSearchExpanded) {
                 Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(MaterialTheme.colorScheme.scrim.copy(alpha = 0.4f))
-                        .clickable(
-                            interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
-                            indication = null
-                        ) {
-                            isPillMenuExpanded = false
-                            isSearchExpanded = false
-                        }
-                )
-            }
-
-            Column(
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    // Added a subtle gradient background for better visibility
-                    .background(
-                        brush = androidx.compose.ui.graphics.Brush.verticalGradient(
-                            colors = listOf(
-                                Color.Transparent,
-                                Color.Black.copy(alpha = 0.3f),
-                                Color.Black.copy(alpha = 0.7f)
+                    modifier = Modifier.weight(1f).fillMaxWidth()
+                ) {
+                    if (selectedTab == NoteTab.SEARCH) {
+                        Column(modifier = Modifier.fillMaxSize()) {
+                            SearchAndMapsTab(
+                                viewModel = viewModel,
+                                mapNotes = mapNotes,
+                                selectedMapId = selectedMapId,
+                                searchQuery = searchQuery,
+                                notes = notes,
+                                isLoading = isLoading,
+                                onNoteClick = onNoteClick,
+                                onMapNoteClick = onMapNoteClick,
+                                onAddToMap = { note -> noteToAddToMap = note; showMapSelectionDialog = true }
                             )
+                        }
+                    } else {
+                        NoteListContent(
+                            notes = notes,
+                            isLoading = isLoading,
+                            searchQuery = searchQuery,
+                            viewModel = viewModel,
+                            onNoteClick = onNoteClick,
+                            onMapNoteClick = onMapNoteClick,
+                            onAddToMap = { noteToAddToMap = it },
+                            modifier = Modifier.fillMaxSize(),
+                            showHint = showListHint,
+                            onDismissHint = { showListHint = false }
                         )
-                    )
-                    .navigationBarsPadding()
-                    .imePadding()
-                    .padding(bottom = 0.dp, top = 8.dp)
-                    .fillMaxWidth(),
-                horizontalAlignment = Alignment.CenterHorizontally
+                    }
+                }
+            }
+            // Pill overlay — does not push header/list, same as other screens' floating but now correctly above
+            val searchFocusRequester = remember { androidx.compose.ui.focus.FocusRequester() }
+            val listPillH by androidx.compose.animation.core.animateDpAsState(targetValue = if (isPillMenuExpanded) 320.dp else 56.dp, animationSpec = androidx.compose.animation.core.spring(dampingRatio = 0.85f, stiffness=300f), label="listH")
+            val listPillS = if (isPillMenuExpanded) RoundedCornerShape(32.dp) else RoundedCornerShape(50)
+            androidx.compose.animation.AnimatedVisibility(
+                visible = true,
+                modifier = Modifier.align(Alignment.BottomCenter).padding(horizontal = 16.dp, vertical = 12.dp).imePadding(),
+                enter = androidx.compose.animation.fadeIn(),
+                exit = androidx.compose.animation.fadeOut()
             ) {
-                // DotPill Integration (Top)
-                com.folius.dotnotes.ui.components.DotPill(
-                    isExpanded = isSearchExpanded,
-                    onExpandedChange = { isSearchExpanded = it },
-                    isMenuExpanded = isPillMenuExpanded,
-                    onMenuExpandedChange = { isPillMenuExpanded = it },
-                    searchText = searchQuery,
-                    onSearchTextChange = { viewModel.onSearchQueryChange(it) },
-                    onLongClick = { 
-                        if (selectedTab == NoteTab.MAPS) {
-                            viewModel.createMapNote("New Map")
-                        } else {
-                            onAddNoteClick(selectedTab) 
-                        }
-                    },
-                    placeholderText = if (selectedMapId != null) {
-                        mapNotes.find { it.id == selectedMapId }?.title ?: "Search notes..."
-                    } else "Search notes...",
-                    actions = {
-                        IconButton(onClick = { isSearchExpanded = true }) {
-                            Icon(Icons.Default.Search, contentDescription = "Search")
-                        }
-                    },
-                    menuContent = {
-                        Text(
-                            "Actions",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp)
-                        )
-                        
-                        Row(
-                            modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
-                            horizontalArrangement = Arrangement.spacedBy(12.dp)
-                        ) {
-                            var showSortMenu by remember { mutableStateOf(false) }
-                            Box(modifier = Modifier.weight(1f)) {
-                                OutlinedButton(
-                                    onClick = { showSortMenu = true },
-                                    modifier = Modifier.fillMaxWidth(),
-                                    shape = MaterialTheme.shapes.small
-                                ) {
-                                    Icon(Icons.Default.Sort, null)
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Text("Sort: ${sortOrder.label}")
+            Surface(shape = listPillS, color = pillBg, modifier = Modifier.fillMaxWidth().height(listPillH)
+                    .pointerInput(Unit) {
+                        var totalX = 0f
+                        var totalY = 0f
+                        detectDragGestures(
+                            onDragEnd = {
+                                if (isPillMenuExpanded && totalY > 80) isPillMenuExpanded = false
+                                else if (totalY < -80) isPillMenuExpanded = true
+                                else if (totalX > 100) {
+                                    val cur = selectedTab.ordinal
+                                    if (cur > 0) viewModel.setSelectedTab(NoteTab.entries[cur-1])
+                                } else if (totalX < -100) {
+                                    val cur = selectedTab.ordinal
+                                    if (cur < NoteTab.entries.size-1) viewModel.setSelectedTab(NoteTab.entries[cur+1])
                                 }
-                                DropdownMenu(
-                                    expanded = showSortMenu,
-                                    onDismissRequest = { showSortMenu = false }
-                                ) {
-                                    SortOrder.entries.forEach { order ->
-                                        DropdownMenuItem(
-                                            text = { Text(order.label) },
-                                            onClick = {
-                                                viewModel.setSortOrder(order)
-                                                showSortMenu = false
+                                totalX = 0f; totalY = 0f
+                            },
+                            onDragCancel = { totalX = 0f; totalY = 0f },
+                            onDrag = { change, dragAmount -> change.consume(); totalX += dragAmount.x; totalY += dragAmount.y }
+                        )
+                    }
+                    .combinedClickable(
+                        interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
+                        indication = null,
+                        onLongClick = { if (selectedTab == NoteTab.MAPS) viewModel.createMapNote("New Map") else onAddNoteClick(selectedTab) },
+                        onClick = { isPillMenuExpanded = !isPillMenuExpanded }
+                    )) {
+                    androidx.compose.animation.AnimatedContent(targetState = isPillMenuExpanded, label="listMenu") { exp ->
+                        if (exp) {
+                            Column(modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 12.dp).verticalScroll(rememberScrollState())) {
+                                Box(modifier = Modifier.width(28.dp).height(3.dp).clip(CircleShape).background(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.25f)).align(Alignment.CenterHorizontally))
+                                Spacer(modifier = Modifier.height(14.dp))
+                                Text("Menu", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold, letterSpacing = (-0.3).sp), color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.fillMaxWidth())
+                                Text("${notes.size} notes • ${selectedTab.name.lowercase()} • ${if (selectedTag != null) "#"+selectedTag else "all tags"}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f), modifier = Modifier.fillMaxWidth().padding(top = 2.dp, bottom = 12.dp))
+                                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.18f))
+                                Spacer(modifier = Modifier.height(12.dp))
+                                var showSort by remember { mutableStateOf(false) }
+                                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                    val segItems = listOf(
+                                        Triple(Icons.Default.Sort, "Sort • ${sortOrder.label}", { showSort = true }),
+                                        Triple(Icons.Default.Settings, "Settings", { isPillMenuExpanded = false; onSettingsClick() })
+                                    )
+                                    segItems.forEachIndexed { idx, triple ->
+                                        val icon = triple.first
+                                        val label = triple.second
+                                        val onClick = triple.third
+                                        val shape = when {
+                                            segItems.size <= 1 -> RoundedCornerShape(28.dp)
+                                            idx == 0 -> RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp, bottomStart = 6.dp, bottomEnd = 6.dp)
+                                            idx == segItems.size - 1 -> RoundedCornerShape(topStart = 6.dp, topEnd = 6.dp, bottomStart = 28.dp, bottomEnd = 28.dp)
+                                            else -> RoundedCornerShape(6.dp)
+                                        }
+                                        Card(
+                                            shape = shape,
+                                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+                                            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                                            modifier = Modifier.fillMaxWidth().clickable { onClick() }
+                                        ) {
+                                            Row(
+                                                modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 14.dp),
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                Box(modifier = Modifier.size(32.dp).clip(RoundedCornerShape(10.dp)).background(MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.85f)), contentAlignment = Alignment.Center) {
+                                                    Icon(icon, null, tint = MaterialTheme.colorScheme.onSecondaryContainer, modifier = Modifier.size(18.dp))
+                                                }
+                                                Spacer(modifier = Modifier.width(14.dp))
+                                                Text(label, style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium), color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.weight(1f))
+                                                Icon(Icons.Filled.KeyboardArrowRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f), modifier = Modifier.size(18.dp))
                                             }
-                                        )
+                                        }
+                                    }
+                                }
+                                Box {
+                                    DropdownMenu(expanded = showSort, onDismissRequest = { showSort = false }) {
+                                        SortOrder.entries.forEach { o -> DropdownMenuItem(text = { Text(o.label) }, onClick = { viewModel.setSortOrder(o); showSort = false }) }
+                                    }
+                                }
+                                if (allTags.isNotEmpty()) {
+                                    Spacer(modifier = Modifier.height(12.dp))
+                                    Text("Filter by tags", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp))
+                                    androidx.compose.foundation.layout.FlowRow(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                        FilterChip(selected = selectedTag == null, onClick = { viewModel.setSelectedTag(null) }, label = { Text("All") })
+                                        allTags.forEach { tag -> FilterChip(selected = selectedTag == tag, onClick = { viewModel.setSelectedTag(if (selectedTag == tag) null else tag) }, label = { Text("#"+tag) }) }
+                                    }
+                                }
+                                Spacer(modifier = Modifier.height(16.dp))
+                                Box(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)).padding(horizontal = 12.dp, vertical = 10.dp), contentAlignment = Alignment.Center) {
+                                    Text("Swipe pill to switch tabs • Long-press + to add", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                                }
+                            }
+                        } else {
+                            Row(modifier = Modifier.fillMaxSize().padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Box(modifier = Modifier.weight(1f).padding(start = 8.dp).clickable(interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }, indication = null) { searchFocusRequester.requestFocus() }, contentAlignment = Alignment.CenterStart) {
+                                    androidx.compose.foundation.text.BasicTextField(
+                                        value = searchQuery,
+                                        onValueChange = { viewModel.onSearchQueryChange(it) },
+                                        singleLine = true,
+                                        textStyle = MaterialTheme.typography.titleMedium.copy(color = MaterialTheme.colorScheme.onSurface, textAlign = androidx.compose.ui.text.style.TextAlign.Start),
+                                        cursorBrush = androidx.compose.ui.graphics.SolidColor(MaterialTheme.colorScheme.onSurface),
+                                        modifier = Modifier.fillMaxWidth().focusRequester(searchFocusRequester),
+                                        decorationBox = { inner ->
+                                            Box(contentAlignment = Alignment.CenterStart, modifier = Modifier.fillMaxWidth()) {
+                                                if (searchQuery.isEmpty()) {
+                                                    Text(text = if (selectedMapId != null) { mapNotes.find{it.id==selectedMapId}?.title ?: "Search"} else "Search", style=MaterialTheme.typography.titleMedium.copy(color=MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f), textAlign=androidx.compose.ui.text.style.TextAlign.Start), maxLines=1)
+                                                }
+                                                inner()
+                                            }
+                                        }
+                                    )
+                                }
+                                Surface(
+                                    shape = RoundedCornerShape(50),
+                                    color = pillBg,
+                                    border = androidx.compose.foundation.BorderStroke(2.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.9f)),
+                                    modifier = Modifier.size(width = 72.dp, height = 44.dp).clickable { if (selectedTab == NoteTab.MAPS) viewModel.createMapNote("New Map") else onAddNoteClick(selectedTab) }
+                                ) {
+                                    Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
+                                        Icon(Icons.Default.Add, contentDescription = "Add", tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(20.dp))
                                     }
                                 }
                             }
                         }
-
-
-                        if (allTags.isNotEmpty()) {
-                            Text(
-                                "Tags",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                                modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp, top = 8.dp)
-                            )
-                            LazyRow(
-                                modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                item {
-                                    FilterChip(
-                                        selected = selectedTag == null,
-                                        onClick = { viewModel.setSelectedTag(null) },
-                                        label = { Text("All Tags") }
-                                    )
-                                }
-                                items(allTags) { tag ->
-                                    FilterChip(
-                                        selected = selectedTag == tag,
-                                        onClick = { viewModel.setSelectedTag(tag) },
-                                        label = { Text("#$tag") }
-                                    )
-                                }
-                            }
-                        }
-                        
-                        Spacer(modifier = Modifier.height(16.dp))
-                        
-                        Button(
-                            onClick = onSettingsClick,
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = MaterialTheme.shapes.medium
-                        ) {
-                            Icon(Icons.Default.Settings, null)
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text("App Settings")
-                        }
                     }
-                )
-
-                Spacer(modifier = Modifier.height(2.dp))
-
-                // Tab Switcher Pill (Notes vs Lists) - Now in the middle
-                androidx.compose.animation.AnimatedVisibility(
-                    visible = !isPillMenuExpanded && !isSearchExpanded,
-                    enter = androidx.compose.animation.fadeIn(),
-                    exit = androidx.compose.animation.fadeOut()
-                ) {
-                    TabSwitcherPill(
-                        selectedTab = selectedTab,
-                        onTabSelected = { viewModel.setSelectedTab(it) }
-                    )
                 }
-
-                Spacer(modifier = Modifier.height(2.dp))
-
-                // Pinned Notes Bar (Bottom) - Hidden when menu is open
-                androidx.compose.animation.AnimatedVisibility(
-                    visible = !isPillMenuExpanded && !isSearchExpanded,
-                    enter = androidx.compose.animation.fadeIn() + androidx.compose.animation.expandVertically(expandFrom = Alignment.Top),
-                    exit = androidx.compose.animation.fadeOut() + androidx.compose.animation.shrinkVertically(shrinkTowards = Alignment.Top)
-                ) {
-                    PinnedNotesBar(
-                        pinnedNotes = pinnedNotes,
-                        activeNoteId = null,
-                        onNoteClick = { note -> 
-                            if (note.isMap) onMapNoteClick(note.id)
-                            else onNoteClick(note.id) 
-                        },
-                        onNoteRemove = { viewModel.toggleNotePinnedStatus(it) },
-                        onNewNote = { 
-                            if (selectedTab == NoteTab.MAPS) {
-                                viewModel.createMapNote("New Map")
-                            } else {
-                                onAddNoteClick(selectedTab) 
-                            }
-                        },
-                        modifier = Modifier.padding(horizontal = 8.dp)
-                    )
-                }
+            }
         }
     }
-}
 
     if (showMapSelectionDialog && noteToAddToMap != null) {
         MapNoteSelectionDialog(
@@ -385,7 +386,7 @@ fun NoteListScreen(
 
 
 @Composable
-fun NoteItem(note: Note, onClick: () -> Unit, onLongPress: () -> Unit) {
+fun NoteItem(note: Note, onClick: () -> Unit, onLongPress: () -> Unit, shape: androidx.compose.ui.graphics.Shape = MaterialTheme.shapes.medium) {
     val date = remember(note.timestamp) {
         SimpleDateFormat("MMM dd, yyyy", Locale.getDefault()).format(Date(note.timestamp))
     }
@@ -399,7 +400,9 @@ fun NoteItem(note: Note, onClick: () -> Unit, onLongPress: () -> Unit) {
                     onLongPress = { onLongPress() }
                 )
             },
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        shape = shape,
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Row {
             // Color indicator
@@ -586,14 +589,14 @@ fun NoteListContent(
             Box(modifier = Modifier.fillMaxSize()) {
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 140.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 2.dp),
+                    verticalArrangement = Arrangement.spacedBy(2.dp)
                 ) {
-                items(
+                itemsIndexed(
                     items = notes,
-                    key = { it.id },
-                    contentType = { "note" }
-                ) { note ->
+                    key = { _, n -> n.id },
+                    contentType = { _, _ -> "note" }
+                ) { index, note ->
                     val density = LocalDensity.current
                     val midwayThreshold = with(density) { 120.dp.toPx() }
                     val dismissThreshold = with(density) { 250.dp.toPx() } // Lowered threshold for full action
@@ -727,7 +730,8 @@ fun NoteListContent(
                                 },
                                 onLongPress = { 
                                     onAddToMap(note)
-                                }
+                                },
+                                shape = segmentedShape(index, notes.size)
                             )
                         }
                     }
