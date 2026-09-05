@@ -75,7 +75,8 @@ fun TrashScreen(
                 Spacer(modifier = Modifier.height(14.dp))
 
                 val trashH by androidx.compose.animation.core.animateDpAsState(targetValue = if (isPillMenuExpanded) 200.dp else 56.dp, animationSpec = androidx.compose.animation.core.spring(dampingRatio=0.85f, stiffness=300f), label="trashH")
-                val trashS = if (isPillMenuExpanded) RoundedCornerShape(32.dp) else RoundedCornerShape(50)
+                val trashCorner by androidx.compose.animation.core.animateDpAsState(targetValue = if (isPillMenuExpanded) 32.dp else 28.dp, animationSpec = androidx.compose.animation.core.spring(dampingRatio=0.85f, stiffness=300f), label="trashCorner")
+                val trashS = RoundedCornerShape(trashCorner)
                 Surface(shape = trashS, color = pillBg, modifier = Modifier.fillMaxWidth().height(trashH)
                     .pointerInput(Unit) {
                         var dX = 0f

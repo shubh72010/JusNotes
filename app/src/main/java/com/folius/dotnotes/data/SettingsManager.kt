@@ -17,6 +17,7 @@ class SettingsManager(private val context: Context) {
         val ANIMATIONS_ENABLED = androidx.datastore.preferences.core.booleanPreferencesKey("animations_enabled")
         val STORAGE_URI = stringPreferencesKey("storage_uri")
         val HAS_SHOWN_GESTURE_HINTS = androidx.datastore.preferences.core.booleanPreferencesKey("has_shown_gesture_hints")
+        val VIEW_MODE = stringPreferencesKey("view_mode")
     }
 
     val apiKey: Flow<String?> = context.dataStore.data.map { it[API_KEY] }
@@ -25,6 +26,7 @@ class SettingsManager(private val context: Context) {
     val isAnimationsEnabled: Flow<Boolean> = context.dataStore.data.map { it[ANIMATIONS_ENABLED] ?: true }
     val storageUri: Flow<String?> = context.dataStore.data.map { it[STORAGE_URI] }
     val hasShownGestureHints: Flow<Boolean> = context.dataStore.data.map { it[HAS_SHOWN_GESTURE_HINTS] ?: false }
+    val viewMode: Flow<String> = context.dataStore.data.map { it[VIEW_MODE] ?: "list" }
 
     suspend fun saveSettings(apiKey: String, modelId: String, theme: String, animationsEnabled: Boolean) {
         context.dataStore.edit {
@@ -49,5 +51,9 @@ class SettingsManager(private val context: Context) {
         context.dataStore.edit {
             it[HAS_SHOWN_GESTURE_HINTS] = shown
         }
+    }
+
+    suspend fun saveViewMode(mode: String) {
+        context.dataStore.edit { it[VIEW_MODE] = mode }
     }
 }

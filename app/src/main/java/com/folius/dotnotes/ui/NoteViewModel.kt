@@ -60,6 +60,8 @@ class NoteViewModel(application: Application) : AndroidViewModel(application) {
     private val _isSecretAuthenticated = MutableStateFlow(false)
     val isSecretAuthenticated: StateFlow<Boolean> = _isSecretAuthenticated
 
+    val viewMode: StateFlow<String> = settingsManager.viewMode.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "list")
+
     val apiKey = settingsManager.apiKey.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
     val modelId = settingsManager.modelId.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "google/gemini-flash-1.5")
     val theme = settingsManager.themePref.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "Dark")
@@ -101,12 +103,12 @@ class NoteViewModel(application: Application) : AndroidViewModel(application) {
 
         var filteredNotes = notes
 
-        // Filter by Tab
+        // Filter by Tab — pinned stays visible
         filteredNotes = filteredNotes.filter { note ->
             when (tab) {
-                NoteTab.NOTES -> !note.isChecklist && !note.isMap && !note.isPinned
-                NoteTab.CHECKLISTS -> note.isChecklist && !note.isMap && !note.isPinned
-                NoteTab.MAPS -> note.isMap && !note.isPinned
+                NoteTab.NOTES -> !note.isChecklist && !note.isMap
+                NoteTab.CHECKLISTS -> note.isChecklist && !note.isMap
+                NoteTab.MAPS -> note.isMap
                 NoteTab.SEARCH -> true
             }
         }
@@ -138,14 +140,15 @@ class NoteViewModel(application: Application) : AndroidViewModel(application) {
         // Exclude secret notes
         filteredNotes = filteredNotes.filter { note -> !note.isSecret }
 
-        // Apply sort
-        filteredNotes = when (sort) {
-            SortOrder.DATE_DESC -> filteredNotes.sortedByDescending { note -> note.timestamp }
-            SortOrder.DATE_ASC -> filteredNotes.sortedBy { note -> note.timestamp }
-            SortOrder.TITLE_ASC -> filteredNotes.sortedBy { note -> note.title.lowercase() }
-            SortOrder.TITLE_DESC -> filteredNotes.sortedByDescending { note -> note.title.lowercase() }
-            SortOrder.MODIFIED -> filteredNotes.sortedByDescending { note -> note.lastModified }
+        // Apply sort — pinned always on top (ponytail: stable partition, no extra query)
+        val baseSorted = when (sort) {
+            SortOrder.DATE_DESC -> filteredNotes.sortedByDescending { it.timestamp }
+            SortOrder.DATE_ASC -> filteredNotes.sortedBy { it.timestamp }
+            SortOrder.TITLE_ASC -> filteredNotes.sortedBy { it.title.lowercase() }
+            SortOrder.TITLE_DESC -> filteredNotes.sortedByDescending { it.title.lowercase() }
+            SortOrder.MODIFIED -> filteredNotes.sortedByDescending { it.lastModified }
         }
+        filteredNotes = baseSorted.sortedWith(compareByDescending<Note> { it.isPinned })
 
         filteredNotes
     }.flowOn(kotlinx.coroutines.Dispatchers.Default)
@@ -218,6 +221,10 @@ class NoteViewModel(application: Application) : AndroidViewModel(application) {
 
     fun setHasShownGestureHints(shown: Boolean) {
         viewModelScope.launch { settingsManager.saveHasShownGestureHints(shown) }
+    }
+
+    fun setViewMode(mode: String) {
+        viewModelScope.launch { settingsManager.saveViewMode(mode) }
     }
 
     fun backupNotes(onSuccess: () -> Unit, onError: (String) -> Unit) {

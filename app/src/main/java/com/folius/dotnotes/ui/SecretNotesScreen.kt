@@ -175,7 +175,8 @@ fun SecretNotesScreen(
                 Spacer(modifier = Modifier.height(14.dp))
 
                 val secH by androidx.compose.animation.core.animateDpAsState(targetValue = if (isPillMenuExpanded) 200.dp else 56.dp, animationSpec = androidx.compose.animation.core.spring(dampingRatio=0.85f, stiffness=300f), label="secH")
-                val secS = if (isPillMenuExpanded) RoundedCornerShape(32.dp) else RoundedCornerShape(50)
+                val secCorner by androidx.compose.animation.core.animateDpAsState(targetValue = if (isPillMenuExpanded) 32.dp else 28.dp, animationSpec = androidx.compose.animation.core.spring(dampingRatio=0.85f, stiffness=300f), label="secCorner")
+                val secS = RoundedCornerShape(secCorner)
                 Surface(shape = secS, color = pillBg, modifier = Modifier.fillMaxWidth().height(secH)
                     .pointerInput(Unit) {
                         var dX = 0f

@@ -4,8 +4,10 @@ import android.os.Bundle
 import androidx.fragment.app.FragmentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -46,8 +48,9 @@ class MainActivity : FragmentActivity() {
                 val navController = rememberNavController()
                 
                 NavHost(
-                    navController = navController, 
+                    navController = navController,
                     startDestination = "list",
+                    modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background),
                     enterTransition = {
                         slideIntoContainer(
                             towards = AnimatedContentTransitionScope.SlideDirection.Left,
@@ -87,8 +90,15 @@ class MainActivity : FragmentActivity() {
                             viewModel = viewModel,
                             onBack = { navController.popBackStack() },
                             onSecretNotesClick = { navController.navigate("secret_notes") },
-                            onTrashClick = { navController.navigate("trash") }
+                            onTrashClick = { navController.navigate("trash") },
+                            onTutorialClick = {
+                                viewModel.setHasShownGestureHints(false)
+                                navController.popBackStack()
+                            }
                         )
+                    }
+                    composable("tutorial") {
+                        com.folius.dotnotes.ui.TutorialScreen(onBack = { navController.popBackStack() })
                     }
                     composable("trash") {
                         com.folius.dotnotes.ui.TrashScreen(

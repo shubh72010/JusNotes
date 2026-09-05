@@ -199,7 +199,8 @@ fun NoteMapScreen(
 
                 var localTitle by remember(mapNote.id) { mutableStateOf(mapNote.title) }
                 val mapPH by androidx.compose.animation.core.animateDpAsState(targetValue = if (isPillMenuExpanded) 200.dp else 56.dp, animationSpec = androidx.compose.animation.core.spring(dampingRatio=0.85f, stiffness=300f), label="mapH")
-                val mapPS = if (isPillMenuExpanded) RoundedCornerShape(32.dp) else RoundedCornerShape(50)
+                val mapCorner by androidx.compose.animation.core.animateDpAsState(targetValue = if (isPillMenuExpanded) 32.dp else 28.dp, animationSpec = androidx.compose.animation.core.spring(dampingRatio=0.85f, stiffness=300f), label="mapCorner")
+                val mapPS = RoundedCornerShape(mapCorner)
                 Surface(shape = mapPS, color = pillBg, modifier = Modifier.fillMaxWidth().height(mapPH)
                     .pointerInput(Unit) {
                         var dX = 0f

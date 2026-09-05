@@ -672,7 +672,8 @@ fun NoteEditorScreen(
 
                 // Title pill — flat integrated menu (Image 1 base, tap to expand, still not floating overlay)
                 val pillHeight by animateDpAsState(targetValue = if (isPillMenuExpanded) 420.dp else 56.dp, animationSpec = spring(dampingRatio = 0.85f, stiffness = 300f), label = "pillH")
-                val pillShape = if (isPillMenuExpanded) RoundedCornerShape(32.dp) else RoundedCornerShape(50)
+                val pillCorner by animateDpAsState(targetValue = if (isPillMenuExpanded) 32.dp else 28.dp, animationSpec = spring(dampingRatio = 0.85f, stiffness = 300f), label = "pillCorner")
+                val pillShape = RoundedCornerShape(pillCorner)
                 Surface(
                     shape = pillShape,
                     color = noteColor?.let { Color(it) } ?: pillBg,
@@ -751,7 +752,6 @@ fun NoteEditorScreen(
                                     }),
                                     Triple(Icons.Default.Image, "Image", { isPillMenuExpanded = false; imagePicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }),
                                     Triple(if (isChecklist) Icons.Default.Notes else Icons.Default.CheckBox, if (isChecklist) "Text" else "Checklist", { isPillMenuExpanded = false; if (!isChecklist) { if (content.text.isNotBlank()) { val n = content.text.split("\n").filter{it.isNotBlank()}.map{ ChecklistItem(text=it.trim()) }; checklist.clear(); checklist.addAll(n) }; content = TextFieldValue("") } else { if (checklist.isNotEmpty()) { val nt = checklist.joinToString("\n"){ (if(it.isChecked)"- [x] " else "- [ ] ")+it.text }; content = TextFieldValue(nt, selection=TextRange(nt.length)) }; checklist.clear() }; isChecklist=!isChecklist }),
-                                    Triple(Icons.Default.Hub, "Map", { isPillMenuExpanded = false; showMapSelectionDialog = true }),
                                     Triple(Icons.Default.ContentCopy, "Duplicate", { isPillMenuExpanded = false; scope.launch { val n=viewModel.getNoteById(currentNoteId?:-1); n?.let{viewModel.duplicateNote(it)}; Toast.makeText(context,"Duplicated",Toast.LENGTH_SHORT).show() } }),
                                     Triple(Icons.Default.AutoAwesome, "AI Assist", { isPillMenuExpanded = false; showAiChat = true }),
                                     Triple(Icons.Default.DeleteOutline, "Delete", { isPillMenuExpanded = false; val id=currentNoteId?:existingNote?.id; id?.let{viewModel.trashNoteById(it)}; onBack() })

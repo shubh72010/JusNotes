@@ -1,6 +1,5 @@
 package com.folius.dotnotes.ui.components
 
-import android.os.Build
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.LocalTextStyle
@@ -8,13 +7,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.draw.blur
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.graphics.asComposeRenderEffect
 import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalLayoutApi::class)
@@ -74,24 +69,15 @@ private fun AnimatedWord(
     delay: Int
 ) {
     val alpha = remember { Animatable(0f) }
-    val blur = remember { Animatable(10f) }
-    val translationY = remember { Animatable(50f) } // Default direction top, so start from below (50) to 0? 
-    // React code: defaultFrom: y: -50 (if top) or 50. defaultTo: y:0. 
-    // Let's map "top" means appearing from top? Or moving to top?
-    // React: direction='top' -> from y=-50 to y=0.
-    
-    // We'll stick to a nice "fade up" effect: Start +10y -> 0y.
-    
+    val translationY = remember { Animatable(12f) }
+
     LaunchedEffect(Unit) {
-        delay(delay.toLong())
+        kotlinx.coroutines.delay(delay.toLong())
         launch {
-            alpha.animateTo(1f, animationSpec = tween(durationMillis = 500, easing = LinearOutSlowInEasing))
+            alpha.animateTo(1f, animationSpec = tween(durationMillis = 350, easing = LinearOutSlowInEasing))
         }
         launch {
-            blur.animateTo(0f, animationSpec = tween(durationMillis = 500, easing = LinearOutSlowInEasing))
-        }
-        launch {
-            translationY.animateTo(0f, animationSpec = tween(durationMillis = 500, easing = BackOutEasing))
+            translationY.animateTo(0f, animationSpec = tween(durationMillis = 400, easing = BackOutEasing))
         }
     }
 
@@ -99,15 +85,7 @@ private fun AnimatedWord(
         text = text,
         style = style,
         modifier = Modifier
-            .graphicsLayer {
-                this.translationY = translationY.value
-                // RenderEffect only on S+
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                     this.renderEffect = android.graphics.RenderEffect.createBlurEffect(
-                         blur.value, blur.value, android.graphics.Shader.TileMode.DECAL
-                     ).asComposeRenderEffect()
-                }
-            }
+            .graphicsLayer { this.translationY = translationY.value }
             .alpha(alpha.value)
     )
 }

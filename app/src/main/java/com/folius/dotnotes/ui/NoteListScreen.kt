@@ -20,6 +20,9 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.staggeredgrid.LazyVerticalStaggeredGrid
+import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridCells
+import androidx.compose.foundation.lazy.staggeredgrid.items
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -49,6 +52,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -68,7 +72,6 @@ import androidx.compose.animation.core.exponentialDecay
 import kotlin.math.*
 import java.text.SimpleDateFormat
 import java.util.*
-import com.folius.dotnotes.ui.components.BlurText
 import com.folius.dotnotes.ui.components.PinnedSubpill
 import com.folius.dotnotes.ui.components.DotPill
 import com.folius.dotnotes.ui.components.PinnedNotesBar
@@ -120,6 +123,7 @@ fun NoteListScreen(
     val sortOrder by viewModel.sortOrder.collectAsState()
     val allTags by viewModel.allTags.collectAsState()
     val selectedTag by viewModel.selectedTag.collectAsState()
+    val viewMode by viewModel.viewMode.collectAsState()
     
     val scope = rememberCoroutineScope()
 
@@ -129,21 +133,9 @@ fun NoteListScreen(
     var noteToAddToMap by remember { mutableStateOf<Note?>(null) }
 
     val hasShownHints by viewModel.hasShownGestureHints.collectAsState()
-    var showListHint by remember { mutableStateOf(false) }
-
-    LaunchedEffect(hasShownHints) {
-        if (!hasShownHints) {
-            delay(2000)
-            showListHint = true
-        }
-    }
-
-    if (showListHint) {
-        LaunchedEffect(Unit) {
-            delay(6000)
-            showListHint = false
-        }
-    }
+    var showListHint by remember { mutableStateOf(false) } // superseded by VisualTutorialOverlay
+    var showVisualTutorial by remember { mutableStateOf(false) }
+    LaunchedEffect(hasShownHints) { if (!hasShownHints) { delay(800); showVisualTutorial = true } }
 
     LaunchedEffect(Unit) {
         // Give UI a moment to settle before loading notes
@@ -157,8 +149,8 @@ fun NoteListScreen(
     Scaffold(containerColor = outerBg) { padding ->
         Box(
             modifier = Modifier
-                .padding(top = padding.calculateTopPadding())
                 .fillMaxSize()
+                .padding(padding)
                 .background(outerBg)
         ) {
                         Column(
@@ -171,7 +163,7 @@ fun NoteListScreen(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 8.dp, vertical = 8.dp)
+                        .padding(horizontal = 8.dp, vertical = 4.dp)
                 ) {
                     Image(
                         painter = androidx.compose.ui.res.painterResource(id = R.drawable.dotnotes_logo),
@@ -222,7 +214,8 @@ fun NoteListScreen(
             // Pill overlay — does not push header/list, same as other screens' floating but now correctly above
             val searchFocusRequester = remember { androidx.compose.ui.focus.FocusRequester() }
             val listPillH by androidx.compose.animation.core.animateDpAsState(targetValue = if (isPillMenuExpanded) 320.dp else 56.dp, animationSpec = androidx.compose.animation.core.spring(dampingRatio = 0.85f, stiffness=300f), label="listH")
-            val listPillS = if (isPillMenuExpanded) RoundedCornerShape(32.dp) else RoundedCornerShape(50)
+            val listPillCorner by androidx.compose.animation.core.animateDpAsState(targetValue = if (isPillMenuExpanded) 32.dp else 28.dp, animationSpec = androidx.compose.animation.core.spring(dampingRatio = 0.85f, stiffness=300f), label="listCorner")
+            val listPillS = RoundedCornerShape(listPillCorner)
             androidx.compose.animation.AnimatedVisibility(
                 visible = true,
                 modifier = Modifier.align(Alignment.BottomCenter).padding(horizontal = 16.dp, vertical = 12.dp).imePadding(),
@@ -269,6 +262,7 @@ fun NoteListScreen(
                                 Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                                     val segItems = listOf(
                                         Triple(Icons.Default.Sort, "Sort • ${sortOrder.label}", { showSort = true }),
+                                        Triple(if (viewMode == "grid") Icons.Default.ViewAgenda else Icons.Default.GridView, if (viewMode == "grid") "List view" else "Grid view", { viewModel.setViewMode(if (viewMode == "grid") "list" else "grid") }),
                                         Triple(Icons.Default.Settings, "Settings", { isPillMenuExpanded = false; onSettingsClick() })
                                     )
                                     segItems.forEachIndexed { idx, triple ->
@@ -381,6 +375,14 @@ fun NoteListScreen(
         )
     }
 
+    if (showVisualTutorial) {
+        com.folius.dotnotes.ui.components.VisualTutorialOverlay(
+            onDismiss = { showVisualTutorial = false; viewModel.setHasShownGestureHints(true) },
+            modifier = Modifier.fillMaxSize(),
+            isPillExpanded = isPillMenuExpanded
+        )
+    }
+
     // Folder dialogs removed.
 }
 
@@ -391,6 +393,14 @@ fun NoteItem(note: Note, onClick: () -> Unit, onLongPress: () -> Unit, shape: an
         SimpleDateFormat("MMM dd, yyyy", Locale.getDefault()).format(Date(note.timestamp))
     }
     val noteColorValue = note.color
+    val baseBg = MaterialTheme.colorScheme.surfaceContainerLow
+    val cardBg = remember(noteColorValue, baseBg) {
+        if (noteColorValue != null) {
+            val c = Color(noteColorValue)
+            // 0.18 alpha tint blended over surface — keeps white text readable, still shows hue on homescreen
+            c.copy(alpha = 0.22f).compositeOver(baseBg)
+        } else baseBg
+    }
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -401,7 +411,8 @@ fun NoteItem(note: Note, onClick: () -> Unit, onLongPress: () -> Unit, shape: an
                 )
             },
         shape = shape,
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+        colors = CardDefaults.cardColors(containerColor = cardBg),
+        border = if (noteColorValue != null) BorderStroke(1.dp, Color(noteColorValue).copy(alpha = 0.35f)) else null,
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Row {
@@ -419,21 +430,13 @@ fun NoteItem(note: Note, onClick: () -> Unit, onLongPress: () -> Unit, shape: an
             modifier = Modifier.padding(16.dp).weight(1f)
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                if (note.title.isNotBlank()) {
-                    BlurText(
-                        text = note.title,
-                        style = MaterialTheme.typography.titleLarge,
-                        modifier = Modifier.weight(1f),
-                        delay = 50
-                    )
-                } else {
-                     BlurText(
-                        text = "Untitled",
-                        style = MaterialTheme.typography.titleLarge,
-                        modifier = Modifier.weight(1f),
-                        delay = 50
-                    )
-                }
+                Text(
+                    text = if (note.title.isNotBlank()) note.title else "Untitled",
+                    style = MaterialTheme.typography.titleLarge,
+                    modifier = Modifier.weight(1f),
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
                 if (note.isPinned) {
                     Icon(
                         Icons.Default.PushPin,
@@ -499,15 +502,62 @@ fun NoteItem(note: Note, onClick: () -> Unit, onLongPress: () -> Unit, shape: an
                 } else {
                     note.content
                 }
-                BlurText(
+                Text(
                     text = truncatedContent,
                     style = MaterialTheme.typography.bodyMedium,
                     modifier = Modifier.fillMaxWidth(),
-                    delay = 20
+                    maxLines = 3,
+                    overflow = TextOverflow.Ellipsis
                 )
             }
         }
         } // end Row
+    }
+}
+
+@Composable
+fun GridNoteItem(note: Note, onClick: () -> Unit, onLongPress: () -> Unit) {
+    val date = remember(note.timestamp) { SimpleDateFormat("MMM dd, yyyy", Locale.getDefault()).format(Date(note.timestamp)) }
+    val baseGridBg = MaterialTheme.colorScheme.surfaceContainer
+    val gridBg = remember(note.color, baseGridBg) {
+        if (note.color != null) Color(note.color).copy(alpha = 0.24f).compositeOver(baseGridBg) else baseGridBg
+    }
+    val gridBorder = if (note.color != null) BorderStroke(1.dp, Color(note.color).copy(alpha = 0.38f)) else BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+    Card(
+        modifier = Modifier.fillMaxWidth().combinedClickable(onClick = onClick, onLongClick = onLongPress),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = gridBg),
+        border = gridBorder,
+        elevation = CardDefaults.cardElevation(0.dp)
+    ) {
+        Column(modifier = Modifier.padding(14.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                Text(text = if (note.title.isBlank()) "Untitled" else note.title, style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold), maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+                if (note.isPinned) { Spacer(Modifier.width(6.dp)); Icon(Icons.Default.PushPin, null, Modifier.size(14.dp), tint = MaterialTheme.colorScheme.primary) }
+            }
+            if (note.tags.isNotEmpty()) { Text(text = note.tags.joinToString(" ") { "#$it" }, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 2.dp)) }
+            Spacer(Modifier.height(6.dp))
+            if (note.isChecklist) {
+                val done = note.checklist.count { it.isChecked }
+                val total = note.checklist.size
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    note.checklist.take(8).forEach { item ->
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(if (item.isChecked) Icons.Default.CheckBox else Icons.Default.CheckBoxOutlineBlank, null, Modifier.size(14.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f))
+                            Spacer(Modifier.width(6.dp))
+                            Text(item.text, style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis, color = if (item.isChecked) MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f) else MaterialTheme.colorScheme.onSurface)
+                        }
+                    }
+                    if (total > 8) Text("…", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    if (total > 0) Text("+ $done ticked", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f), modifier = Modifier.padding(top = 4.dp))
+                }
+            } else {
+                val preview = if (note.content.length > 180) note.content.take(180) + "…" else note.content
+                if (preview.isNotBlank()) Text(text = preview, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, lineHeight = 16.sp)
+            }
+            Spacer(Modifier.height(8.dp))
+            Text(date, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f))
+        }
     }
 }
 
@@ -566,24 +616,31 @@ fun NoteListContent(
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
 
+    val viewMode by viewModel.viewMode.collectAsState()
     Column(modifier = modifier.fillMaxSize()) {
         if (isLoading) {
-            LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 140.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                items(10) { NoteItemSkeleton() }
+            if (viewMode == "grid") {
+                LazyVerticalStaggeredGrid(columns = StaggeredGridCells.Fixed(2), modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(horizontal = 12.dp, vertical = 12.dp), verticalItemSpacing = 8.dp, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    items(10) { Box(modifier = Modifier.fillMaxWidth().height(120.dp).clip(RoundedCornerShape(16.dp)).background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))) }
+                }
+            } else {
+                LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 140.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) { items(10) { NoteItemSkeleton() } }
             }
         } else if (notes.isEmpty()) {
-            Box(
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Text(if (searchQuery.isEmpty()) "No notes here." else "No results found.", style = MaterialTheme.typography.bodyLarge)
+            }
+        } else if (viewMode == "grid") {
+            LazyVerticalStaggeredGrid(
+                columns = StaggeredGridCells.Fixed(2),
                 modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center
+                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
+                verticalItemSpacing = 8.dp,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Text(
-                    if (searchQuery.isEmpty()) "No notes here." else "No results found.",
-                    style = MaterialTheme.typography.bodyLarge
-                )
+                items(notes, key = { it.id }) { note ->
+                    GridNoteItem(note = note, onClick = { if (note.isMap) onMapNoteClick(note.id) else onNoteClick(note.id) }, onLongPress = { onAddToMap(note) })
+                }
             }
         } else {
             Box(modifier = Modifier.fillMaxSize()) {
