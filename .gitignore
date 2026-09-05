@@ -13,3 +13,15 @@
 .externalNativeBuild
 .cxx
 local.properties
+
+# Security — local credentials (never commit)
+*.jks
+*.p12
+*.keystore
+*.pem
+*.key
+keystore.properties
+google-services.json
+.env
+.env.local
+.secrets/

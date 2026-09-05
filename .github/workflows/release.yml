@@ -1,0 +1,98 @@
+name: Release
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  id-token: write
+  attestations: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: gradle
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: false
+
+      - name: Fix gradle.properties for Linux
+        run: |
+          if grep -q "org.gradle.java.home" gradle.properties; then
+            echo "Removing hardcoded Windows java.home from gradle.properties"
+            sed -i '/org.gradle.java.home/d' gradle.properties
+            cat gradle.properties
+          fi
+
+      - name: Run tests
+        run: ./gradlew test --stacktrace
+
+      - name: Build release APK
+        run: ./gradlew assembleRelease --stacktrace
+        # signing uses debug.keystore (see app/build.gradle.kts signingConfigs.release); no secrets required
+
+      - name: Verify APK exists
+        run: |
+          ls -lh app/build/outputs/apk/release/
+          test -f app/build/outputs/apk/release/app-release.apk || (echo "app-release.apk not found" && exit 1)
+
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: app/build/outputs/apk/release/app-release.apk
+
+      - name: Generate changelog
+        id: changelog
+        run: |
+          LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+          if [ -z "$LAST_TAG" ]; then
+            LOG=$(git log --pretty=format:"- %s (%h)" --no-merges | head -n 30)
+          else
+            LOG=$(git log "$LAST_TAG"..HEAD --pretty=format:"- %s (%h)" --no-merges | head -n 30)
+          fi
+          echo "log<<EOF" >> $GITHUB_OUTPUT
+          echo "$LOG" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+          echo "last_tag=$LAST_TAG" >> $GITHUB_OUTPUT
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v0.3.${{ github.run_number }}
+          name: v0.3.${{ github.run_number }}
+          generate_release_notes: true
+          body: |
+            Automated release from `${{ github.sha }}`.
+
+            **Changelog since ${{ steps.changelog.outputs.last_tag || 'initial' }}:**
+            ${{ steps.changelog.outputs.log }}
+
+            Built via `assembleRelease` (R8 + shrinkResources, signed with debug keystore).
+            Attested with `actions/attest-build-provenance`.
+          files: |
+            app/build/outputs/apk/release/app-release.apk
+            app/build/outputs/apk/release/output-metadata.json
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
