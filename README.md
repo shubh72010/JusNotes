@@ -6,6 +6,7 @@
 [![Compose BOM 2024.09](https://img.shields.io/badge/Compose_BOM-2024.09.00-blue)](https://developer.android.com/jetpack/compose)
 [![Min SDK 24](https://img.shields.io/badge/minSdk-24-green)](https://developer.android.com)
 [![License GPL-3.0](https://img.shields.io/badge/License-GPL--3.0-blue)](LICENSE)
+[![Downloads](https://img.shields.io/github/downloads/shubh72010/DotNotes/total?label=Downloads&color=success)](https://github.com/shubh72010/DotNotes/releases)
 
 ## ✨ Features
 
