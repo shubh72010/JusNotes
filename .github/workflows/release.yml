@@ -46,31 +46,64 @@ jobs:
             cat gradle.properties
           fi
 
-      - name: Generate debug keystore for CI
+      - name: Decode release keystore
         run: |
-          mkdir -p ~/.android
-          if [ ! -f ~/.android/debug.keystore ]; then
-            echo "Generating CI debug keystore..."
-            keytool -genkey -v -keystore ~/.android/debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
+          if [ -n "${{ secrets.RELEASE_KEYSTORE_BASE64 }}" ]; then
+            echo "Decoding real release keystore..."
+            echo "${{ secrets.RELEASE_KEYSTORE_BASE64 }}" | base64 -d > app/release.keystore
+            # also copy to dotnotes-release.jks for build logic candidates
+            cp app/release.keystore app/dotnotes-release.jks
+            ls -lh app/release.keystore app/dotnotes-release.jks
+          else
+            echo "No RELEASE_KEYSTORE_BASE64 secret — generating CI debug keystore fallback..."
+            mkdir -p ~/.android
+            if [ ! -f ~/.android/debug.keystore ]; then
+              keytool -genkey -v -keystore ~/.android/debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
+            fi
+            ls -lh ~/.android/debug.keystore
           fi
-          ls -lh ~/.android/debug.keystore
 
       - name: Run tests
         run: ./gradlew test --stacktrace
 
       - name: Build release APK
         run: ./gradlew assembleRelease --stacktrace
-        # signing uses debug.keystore (see app/build.gradle.kts signingConfigs.release); CI generates it above
+        env:
+          RELEASE_KEYSTORE_PASSWORD: ${{ secrets.RELEASE_KEYSTORE_PASSWORD }}
+          RELEASE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
+          RELEASE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
+          RELEASE_KEYSTORE_BASE64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
 
       - name: Verify APK exists
         run: |
           ls -lh app/build/outputs/apk/release/
           test -f app/build/outputs/apk/release/app-release.apk || (echo "app-release.apk not found" && exit 1)
 
+      - name: Verify APK signature
+        run: |
+          echo "Verifying signature..."
+          $ANDROID_HOME/build-tools/35.0.0/apksigner verify --print-certs app/build/outputs/apk/release/app-release.apk
+          $ANDROID_HOME/build-tools/35.0.0/apksigner verify app/build/outputs/apk/release/app-release.apk && echo "apksigner verify: OK"
+          # fail if signed with debug (should be DotNotes Release)
+          if $ANDROID_HOME/build-tools/35.0.0/apksigner verify --print-certs app/build/outputs/apk/release/app-release.apk | grep -q "CN=Android Debug"; then
+            echo "::warning::APK is signed with DEBUG keystore — expected release keystore"
+          fi
+
+      - name: Generate checksums
+        run: |
+          cd app/build/outputs/apk/release
+          sha256sum app-release.apk > app-release.apk.sha256
+          sha512sum app-release.apk > app-release.apk.sha512
+          cat app-release.apk.sha256
+          cat app-release.apk.sha512
+          ls -lh app-release.apk.*
+
       - name: Attest build provenance
         uses: actions/attest-build-provenance@v2
         with:
-          subject-path: app/build/outputs/apk/release/app-release.apk
+          subject-path: |
+            app/build/outputs/apk/release/app-release.apk
+            app/build/outputs/apk/release/app-release.apk.sha256
 
       - name: Generate changelog
         id: changelog
@@ -98,10 +131,15 @@ jobs:
             **Changelog since ${{ steps.changelog.outputs.last_tag || 'initial' }}:**
             ${{ steps.changelog.outputs.log }}
 
-            Built via `assembleRelease` (R8 + shrinkResources, signed with debug keystore).
-            Attested with `actions/attest-build-provenance`.
+            **Signature:** `DotNotes Release (RSA 4096)` — verify with `apksigner verify --print-certs`.
+            **Checksums:** see `app-release.apk.sha256` / `.sha512` assets.
+            Built via `assembleRelease` (R8 + shrinkResources), attested with `actions/attest-build-provenance`.
+
+            > **Note:** v0.3.0–v0.3.2 were signed with debug keystore; from v0.3.3+ real release key is used. Debug users must reinstall (signatures differ).
           files: |
             app/build/outputs/apk/release/app-release.apk
+            app/build/outputs/apk/release/app-release.apk.sha256
+            app/build/outputs/apk/release/app-release.apk.sha512
             app/build/outputs/apk/release/output-metadata.json
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

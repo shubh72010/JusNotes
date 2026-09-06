@@ -15,18 +15,42 @@ android {
         applicationId = "com.folius.dotnotes"
         minSdk = 24
         targetSdk = 36
-        versionCode = 11
-        versionName = "0.3.0"
+        versionCode = 12
+        versionName = "0.3.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
     signingConfigs {
         create("release") {
-            storeFile = file("${System.getProperty("user.home")}/.android/debug.keystore")
-            storePassword = "android"
-            keyAlias = "androiddebugkey"
-            keyPassword = "android"
+            // CI: secrets RELEASE_KEYSTORE_BASE64 -> app/release.keystore decoded in workflow
+            // Local: use real keystore only if password env/property is provided, else fallback debug
+            val hasRealPass = System.getenv("RELEASE_KEYSTORE_PASSWORD") != null || project.findProperty("RELEASE_KEYSTORE_PASSWORD") != null
+            val candidates = listOf(
+                file("dotnotes-release.jks"),
+                file("release.keystore"),
+                file("${System.getProperty("user.home")}/.keystores/dotnotes-release.jks")
+            )
+            val real = candidates.firstOrNull { it.exists() }
+            if (hasRealPass && real != null) {
+                storeFile = real
+                storePassword = System.getenv("RELEASE_KEYSTORE_PASSWORD") ?: (project.findProperty("RELEASE_KEYSTORE_PASSWORD") as String? ?: "")
+                keyAlias = System.getenv("RELEASE_KEY_ALIAS") ?: (project.findProperty("RELEASE_KEY_ALIAS") as String? ?: "dotnotes")
+                keyPassword = System.getenv("RELEASE_KEY_PASSWORD") ?: (project.findProperty("RELEASE_KEY_PASSWORD") as String? ?: "")
+            } else if (hasRealPass) {
+                // CI decoded to app/release.keystore
+                val ciFile = file("release.keystore")
+                storeFile = if (ciFile.exists()) ciFile else file("${System.getProperty("user.home")}/.android/debug.keystore")
+                storePassword = System.getenv("RELEASE_KEYSTORE_PASSWORD") ?: (project.findProperty("RELEASE_KEYSTORE_PASSWORD") as String? ?: "")
+                keyAlias = System.getenv("RELEASE_KEY_ALIAS") ?: (project.findProperty("RELEASE_KEY_ALIAS") as String? ?: "dotnotes")
+                keyPassword = System.getenv("RELEASE_KEY_PASSWORD") ?: (project.findProperty("RELEASE_KEY_PASSWORD") as String? ?: "")
+            } else {
+                // fallback debug (local dev without real keystore env)
+                storeFile = file("${System.getProperty("user.home")}/.android/debug.keystore")
+                storePassword = "android"
+                keyAlias = "androiddebugkey"
+                keyPassword = "android"
+            }
         }
     }
     buildTypes {
