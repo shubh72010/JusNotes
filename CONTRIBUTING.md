@@ -1,6 +1,6 @@
-# Contributing to DotNotes
+# Contributing to JusNotes
 
-First off, thank you for considering contributing to DotNotes! It's people like you that make DotNotes a better tool for everyone.
+First off, thank you for considering contributing to JusNotes! It's people like you that make JusNotes a better tool for everyone.
 
 ## How Can I Contribute?
 

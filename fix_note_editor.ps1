@@ -1,5 +1,5 @@
 
-$path = 'app\src\main\java\com\folius\dotnotes\ui\NoteEditorScreen.kt'
+$path = 'app\src\main\java\com\jusdots\jusnotes\ui\NoteEditorScreen.kt'
 $lines = Get-Content $path
 
 # Fix manual save (indices 347 to 360)

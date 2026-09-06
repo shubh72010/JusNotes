@@ -6,13 +6,13 @@ plugins {
 }
 
 android {
-    namespace = "com.folius.dotnotes"
+    namespace = "com.jusdots.jusnotes"
     compileSdk = 36
     buildToolsVersion = "35.0.0"
 
 
     defaultConfig {
-        applicationId = "com.folius.dotnotes"
+        applicationId = "com.jusdots.jusnotes"
         minSdk = 24
         targetSdk = 36
         versionCode = 12
@@ -27,22 +27,22 @@ android {
             // Local: use real keystore only if password env/property is provided, else fallback debug
             val hasRealPass = System.getenv("RELEASE_KEYSTORE_PASSWORD") != null || project.findProperty("RELEASE_KEYSTORE_PASSWORD") != null
             val candidates = listOf(
-                file("dotnotes-release.jks"),
+                file("jusnotes-release.jks"),
                 file("release.keystore"),
-                file("${System.getProperty("user.home")}/.keystores/dotnotes-release.jks")
+                file("${System.getProperty("user.home")}/.keystores/jusnotes-release.jks")
             )
             val real = candidates.firstOrNull { it.exists() }
             if (hasRealPass && real != null) {
                 storeFile = real
                 storePassword = System.getenv("RELEASE_KEYSTORE_PASSWORD") ?: (project.findProperty("RELEASE_KEYSTORE_PASSWORD") as String? ?: "")
-                keyAlias = System.getenv("RELEASE_KEY_ALIAS") ?: (project.findProperty("RELEASE_KEY_ALIAS") as String? ?: "dotnotes")
+                keyAlias = System.getenv("RELEASE_KEY_ALIAS") ?: (project.findProperty("RELEASE_KEY_ALIAS") as String? ?: "jusnotes")
                 keyPassword = System.getenv("RELEASE_KEY_PASSWORD") ?: (project.findProperty("RELEASE_KEY_PASSWORD") as String? ?: "")
             } else if (hasRealPass) {
                 // CI decoded to app/release.keystore
                 val ciFile = file("release.keystore")
                 storeFile = if (ciFile.exists()) ciFile else file("${System.getProperty("user.home")}/.android/debug.keystore")
                 storePassword = System.getenv("RELEASE_KEYSTORE_PASSWORD") ?: (project.findProperty("RELEASE_KEYSTORE_PASSWORD") as String? ?: "")
-                keyAlias = System.getenv("RELEASE_KEY_ALIAS") ?: (project.findProperty("RELEASE_KEY_ALIAS") as String? ?: "dotnotes")
+                keyAlias = System.getenv("RELEASE_KEY_ALIAS") ?: (project.findProperty("RELEASE_KEY_ALIAS") as String? ?: "jusnotes")
                 keyPassword = System.getenv("RELEASE_KEY_PASSWORD") ?: (project.findProperty("RELEASE_KEY_PASSWORD") as String? ?: "")
             } else {
                 // fallback debug (local dev without real keystore env)

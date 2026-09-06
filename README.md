@@ -1,4 +1,4 @@
-# DotNotes 📝
+# JusNotes 📝
 
 > Modern, privacy-focused note-taking for Android — spatial maps instead of folders, AI inside the editor, and a pill-centric UI that feels the same everywhere.
 
@@ -6,7 +6,7 @@
 [![Compose BOM 2024.09](https://img.shields.io/badge/Compose_BOM-2024.09.00-blue)](https://developer.android.com/jetpack/compose)
 [![Min SDK 24](https://img.shields.io/badge/minSdk-24-green)](https://developer.android.com)
 [![License GPL-3.0](https://img.shields.io/badge/License-GPL--3.0-blue)](LICENSE)
-[![Downloads](https://img.shields.io/github/downloads/shubh72010/DotNotes/total?label=Downloads&color=success)](https://github.com/shubh72010/DotNotes/releases)
+[![Downloads](https://img.shields.io/github/downloads/shubh72010/JusNotes/total?label=Downloads&color=success)](https://github.com/shubh72010/JusNotes/releases)
 
 ## ✨ Features
 
@@ -40,7 +40,7 @@
 ## 📁 Project Layout
 
 ```
-:app (com.folius.dotnotes, minSdk 24, targetSdk 36, compileSdk 36, v0.3.0/11)
+:app (com.jusdots.jusnotes, minSdk 24, targetSdk 36, compileSdk 36, v0.3.0/11)
 ├── MainActivity.kt — sole NavHost (routes: list, settings, trash, secret_notes,
 │                      editor/{noteId}?initialTab=, image_viewer/{imageUri},
 │                      map/{noteId}, tutorial) with spring transitions
@@ -61,8 +61,8 @@
 
 ```bash
 # prerequisites: JDK 17, Android SDK 24+, Android Studio
-git clone https://github.com/shubh72010/DotNotes.git
-cd DotNotes
+git clone https://github.com/shubh72010/JusNotes.git
+cd JusNotes
 
 # Linux gotcha: gradle.properties hardcodes Windows jbr — override
 ./gradlew assembleDebug -Porg.gradle.java.home=/usr/lib/jvm/java-17-openjdk-amd64

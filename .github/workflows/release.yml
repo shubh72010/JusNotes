@@ -51,9 +51,9 @@ jobs:
           if [ -n "${{ secrets.RELEASE_KEYSTORE_BASE64 }}" ]; then
             echo "Decoding real release keystore..."
             echo "${{ secrets.RELEASE_KEYSTORE_BASE64 }}" | base64 -d > app/release.keystore
-            # also copy to dotnotes-release.jks for build logic candidates
-            cp app/release.keystore app/dotnotes-release.jks
-            ls -lh app/release.keystore app/dotnotes-release.jks
+            # also copy to jusnotes-release.jks for build logic candidates
+            cp app/release.keystore app/jusnotes-release.jks
+            ls -lh app/release.keystore app/jusnotes-release.jks
           else
             echo "No RELEASE_KEYSTORE_BASE64 secret — generating CI debug keystore fallback..."
             mkdir -p ~/.android
@@ -84,7 +84,7 @@ jobs:
           echo "Verifying signature..."
           $ANDROID_HOME/build-tools/35.0.0/apksigner verify --print-certs app/build/outputs/apk/release/app-release.apk
           $ANDROID_HOME/build-tools/35.0.0/apksigner verify app/build/outputs/apk/release/app-release.apk && echo "apksigner verify: OK"
-          # fail if signed with debug (should be DotNotes Release)
+          # fail if signed with debug (should be JusNotes Release)
           if $ANDROID_HOME/build-tools/35.0.0/apksigner verify --print-certs app/build/outputs/apk/release/app-release.apk | grep -q "CN=Android Debug"; then
             echo "::warning::APK is signed with DEBUG keystore — expected release keystore"
           fi
@@ -279,7 +279,7 @@ jobs:
             **Changelog since ${{ steps.changelog.outputs.last_tag || 'initial' }}:**
             ${{ steps.changelog.outputs.log }}
 
-            **Signature:** `DotNotes Release (RSA 4096)` — verify with `apksigner verify --print-certs`.
+            **Signature:** `JusNotes Release (RSA 4096)` — verify with `apksigner verify --print-certs`.
             **Checksums:** see `app-release.apk.sha256` / `.sha512` assets.
             **${{ steps.vt.outputs.summary || 'VirusTotal scan of app-release.apk — pending' }}**
 

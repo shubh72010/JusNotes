@@ -3,10 +3,10 @@ import os
 import sys
 
 # Determine the correct path
-path = r'app\src\main\java\com\folius\dotnotes\ui\NoteEditorScreen.kt'
+path = r'app\src\main\java\com\jusdots\jusnotes\ui\NoteEditorScreen.kt'
 if not os.path.exists(path):
     # Try absolute path if relative fails
-    path = r'c:\Users\Shubh\AndroidStudioProjects\DotNotes\app\src\main\java\com\folius\dotnotes\ui\NoteEditorScreen.kt'
+    path = r'c:\Users\Shubh\AndroidStudioProjects\JusNotes\app\src\main\java\com\jusdots\jusnotes\ui\NoteEditorScreen.kt'
 
 if not os.path.exists(path):
     print(f"Error: File not found at {path}")

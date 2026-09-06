@@ -1,4 +1,4 @@
-DotNotes is a modern, privacy-focused, and open-source note-taking application for Android. Built with Jetpack Compose, it provides a seamless experience for capturing thoughts, managing tasks, and keeping sensitive information secure.
+JusNotes is a modern, privacy-focused, and open-source note-taking application for Android. Built with Jetpack Compose, it provides a seamless experience for capturing thoughts, managing tasks, and keeping sensitive information secure.
 
 Key Features:
 - 📂 Folder Organization: Group notes into custom folders with rename/remove support.
@@ -12,4 +12,4 @@ Key Features:
 - 🚀 Performance: Gesture controls and animation customization (skip/disable).
 - 🔐 Privacy First: All data is stored locally with custom storage path support.
 
-DotNotes is fully open-source and designed to be simple yet powerful.
+JusNotes is fully open-source and designed to be simple yet powerful.

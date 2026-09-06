@@ -1,0 +1,22 @@
+# Baseline Profile — JusNotes critical journeys (Phase 13)
+# Generated manually to cover startup + scroll/parse paths that JIT would otherwise compile on scroll jank.
+# To regenerate properly: ./gradlew :app:generateBaselineProfile -Pandroid.testInstrumentationRunnerArguments.class=com.jusdots.jusnotes.benchmark.BaselineProfileGenerator
+# Requires benchmark module + Macrobenchmark instrumentation. This file provides immediate R8/dex layout benefit
+# and documents the current critical path; replace with generated profile once benchmark module is added.
+
+HSPLcom/jusdots/jusnotes/MainActivity;->onCreate(Landroid/os/Bundle;)V
+HSPLcom/jusdots/jusnotes/ui/NoteViewModel;-><init>(Landroid/app/Application;)V
+HSPLcom/jusdots/jusnotes/data/AppDatabase;->getDatabase(Landroid/content/Context;)Lcom/jusdots/jusnotes/data/AppDatabase;
+HSPLcom/jusdots/jusnotes/data/NoteDao;->getAllNotes()Lkotlinx/coroutines/flow/Flow;
+HSPLcom/jusdots/jusnotes/data/NoteRepository;->getAllNotes()Lkotlinx/coroutines/flow/Flow;
+HSPLcom/jusdots/jusnotes/ui/NoteListScreenKt;->NoteListScreen(Lcom/jusdots/jusnotes/ui/NoteViewModel;Lkotlin/jvm/functions/Function1;Lkotlin/jvm/functions/Function1;Lkotlin/jvm/functions/Function1;Lkotlin/jvm/functions/Function0;Landroidx/compose/runtime/Composer;I)V
+HSPLcom/jusdots/jusnotes/ui/NoteListScreenKt;->NoteListContent(Ljava/util/List;ZLjava/lang/String;Lcom/jusdots/jusnotes/ui/NoteViewModel;Lkotlin/jvm/functions/Function1;Lkotlin/jvm/functions/Function1;Lkotlin/jvm/functions/Function1;Landroidx/compose/runtime/Composer;I)V
+HSPLcom/jusdots/jusnotes/ui/NoteListScreenKt;->NoteItem(Lcom/jusdots/jusnotes/data/Note;Lkotlin/jvm/functions/Function0;Lkotlin/jvm/functions/Function0;Landroidx/compose/ui/graphics/Shape;Landroidx/compose/runtime/Composer;I)V
+HSPLcom/jusdots/jusnotes/ui/NoteListScreenKt;->GridNoteItem(Lcom/jusdots/jusnotes/data/Note;Lkotlin/jvm/functions/Function0;Lkotlin/jvm/functions/Function0;Landroidx/compose/runtime/Composer;I)V
+HSPLcom/jusdots/jusnotes/utils/MarkdownRenderer;->parseBlocks(Ljava/lang/String;Landroidx/compose/ui/graphics/Color;Landroidx/compose/ui/graphics/Color;Landroidx/compose/ui/graphics/Color;)Ljava/util/List;
+HSPLcom/jusdots/jusnotes/utils/MarkdownRenderer;->renderInline(Ljava/lang/String;Landroidx/compose/ui/graphics/Color;Landroidx/compose/ui/graphics/Color;Landroidx/compose/ui/graphics/Color;)Landroidx/compose/ui/text/AnnotatedString;
+HSPLcom/jusdots/jusnotes/ui/components/MarkdownBlockViewKt;->MarkdownBlockView(Lcom/jusdots/jusnotes/utils/MarkdownBlock;Lkotlin/jvm/functions/Function1;Lkotlin/jvm/functions/Function1;Landroidx/compose/runtime/Composer;I)V
+HSPLcom/jusdots/jusnotes/data/Converters;->fromStringList(Ljava/lang/String;)Ljava/util/List;
+HSPLcom/jusdots/jusnotes/data/Converters;->fromChecklistItemList(Ljava/lang/String;)Ljava/util/List;
+HSPLcom/jusdots/jusnotes/data/Converters;->fromIntList(Ljava/lang/String;)Ljava/util/List;
+HSPLcom/jusdots/jusnotes/data/Converters;->fromMapItems(Ljava/lang/String;)Ljava/util/List;

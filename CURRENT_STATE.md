@@ -1,7 +1,7 @@
-# Current State - DotNotes
+# Current State - JusNotes
 
 ## Project Summary
-DotNotes has undergone a comprehensive structural and UX overhaul based on a deep audit. The application now follows a consistent "Pill-centric" design identity across all primary and secondary screens. Architecture has been modernized with a clean Repository pattern and decoupled network module. UX has been refined with expressive `spring` motion and full Material You theme compliance. The build is fully verified and stable.
+JusNotes has undergone a comprehensive structural and UX overhaul based on a deep audit. The application now follows a consistent "Pill-centric" design identity across all primary and secondary screens. Architecture has been modernized with a clean Repository pattern and decoupled network module. UX has been refined with expressive `spring` motion and full Material You theme compliance. The build is fully verified and stable.
 
 ## System Architecture
 - **Data Layer**: Room DB (v10) with indices on `timestamp` and `lastModified`. Data access is encapsulated in `NoteRepository.kt`.

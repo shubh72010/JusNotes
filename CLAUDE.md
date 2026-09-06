@@ -1,10 +1,10 @@
-# CLAUDE.md — DotNotes
+# CLAUDE.md — JusNotes
 
 This file is for Claude Code / Muse. Keep it tight and grounded.
 
 ## What This Repo Is
 
-Single-module Android app (`:app`, `com.folius.dotnotes`, minSdk 24 / compileSdk 36 / targetSdk 36, JDK 17, Kotlin 2.0.21, Compose BOM 2024.09.00). NavHost lives in `MainActivity.kt` with routes `list`, `settings`, `trash`, `secret_notes`, `editor/{noteId}`, `image_viewer/{imageUri}`, `map/{noteId}`, `tutorial`. Data is Room v10 (`Note` entity) + DataStore (`SettingsManager`), no DI, `NoteViewModel` owns all `StateFlow`s.
+Single-module Android app (`:app`, `com.jusdots.jusnotes`, minSdk 24 / compileSdk 36 / targetSdk 36, JDK 17, Kotlin 2.0.21, Compose BOM 2024.09.00). NavHost lives in `MainActivity.kt` with routes `list`, `settings`, `trash`, `secret_notes`, `editor/{noteId}`, `image_viewer/{imageUri}`, `map/{noteId}`, `tutorial`. Data is Room v10 (`Note` entity) + DataStore (`SettingsManager`), no DI, `NoteViewModel` owns all `StateFlow`s.
 
 ## How to Build
 
@@ -51,7 +51,7 @@ Every screen has the same floating pill (`surfaceContainerHighest`, height `56�
 
 - No required CI before; now `.github/workflows/release.yml` exists (checkout@v*, setup-java@v*, setup-android, assembleRelease, attest, release via `softprops/action-gh-release`).
 - Validate with `python -c 'import yaml; yaml.safe_load(...)'` and `./gradlew assembleDebug`.
-- Git: `origin` is SSH (`git@github.com:shubh72010/DotNotes.git`), `main` → `nightly` sync, tags `v0.3.0` etc.
+- Git: `origin` is SSH (`git@github.com:shubh72010/JusNotes.git`), `main` → `nightly` sync, tags `v0.3.0` etc.
 
 ## What to Do
 

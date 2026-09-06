@@ -1,7 +1,7 @@
-# AGENTS.md — DotNotes
+# AGENTS.md — JusNotes
 
 ## Stack
-- Single-module Android app (`:app`), package `com.folius.dotnotes`, minSdk 24 / compileSdk 36 / targetSdk 36.
+- Single-module Android app (`:app`), package `com.jusdots.jusnotes`, minSdk 24 / compileSdk 36 / targetSdk 36.
 - Jetpack Compose (BOM 2024.09.00) + Material3, Room 2.6.1 + KSP, Navigation Compose 2.8.5, Retrofit+OkHttp, DataStore, Biometric.
 - Version catalog at `gradle/libs.versions.toml` — add/update deps there.
 
@@ -26,7 +26,7 @@
 Requires JDK 17 (`JavaVersion.VERSION_17`, `jvmTarget 17`).
 
 ## Project Layout
-- `app/src/main/java/com/folius/dotnotes/`
+- `app/src/main/java/com/jusdots/jusnotes/`
   - `MainActivity.kt` — sole `NavHost` (routes: `list`, `settings`, `trash`, `secret_notes`, `editor/{noteId}?initialTab=`, `image_viewer/{imageUri}`, `map/{noteId}`, `tutorial`) with spring transitions; `tutorial` reuses `VisualTutorialOverlay`
   - `data/` — `Note.kt` (entity, indices on timestamp/lastModified/isSecret/isPinned/isDeleted), `NoteDao.kt`, `AppDatabase.kt` (v10, `fallbackToDestructiveMigration`, `exportSchema=false`), `NoteRepository.kt`, `SettingsManager.kt` (DataStore: VIEW_MODE + THEME + API_KEY + HAS_SHOWN_GESTURE_HINTS)
   - `ui/` — `NoteViewModel.kt` (monolithic — owns all `StateFlow`s, `viewMode`, `debounce 300ms`, pinned-on-top sort), `NoteListScreen.kt` (`GridNoteItem` + `LazyVerticalStaggeredGrid`), `NoteEditorScreen.kt`, `NoteMapScreen.kt`, `SettingsScreen.kt`, `TrashScreen.kt`, `SecretNotesScreen.kt`, `TutorialScreen.kt`

@@ -1,4 +1,4 @@
-# DESIGN LANGUAGE — DotNotes
+# DESIGN LANGUAGE — JusNotes
 
 > Pill-centric, Material 3, spring motion. Every screen speaks the same language.
 
@@ -28,7 +28,7 @@ Expanded menu (list example):
 
 `MaterialTheme.typography` as-is, tightened where it matters:
 
-- `DotNotes` headline: `headlineLarge ExtraBold -1.2sp`
+- `JusNotes` headline: `headlineLarge ExtraBold -1.2sp`
 - Titles: `titleLarge` (note), `titleMedium SemiBold` (grid), `titleMedium ExtraBold` (settings header -0.8sp)
 - Meta: `labelSmall 0.6–0.7 alpha`, `bodySmall onSurfaceVariant`, grid lineHeight `16sp`
 

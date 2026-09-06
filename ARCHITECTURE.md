@@ -1,11 +1,11 @@
-# ARCHITECTURE — DotNotes
+# ARCHITECTURE — JusNotes
 
 > Single-module Android MVVM, pill-centric Compose, Room as source of truth.
 
 ## 1. At a Glance
 
 ```
-: app  — com.folius.dotnotes
+: app  — com.jusdots.jusnotes
          minSdk 24 / compileSdk 36 / targetSdk 36
          versionCode 11 / versionName 0.3.0
          JDK 17 / Kotlin 2.0.21 / AGP 8.13.2
@@ -19,7 +19,7 @@ Build files: `settings.gradle.kts` (`include(":app")`), `build.gradle.kts` (top-
 ## 2. Modules & Packages
 
 ```
-app/src/main/java/com/folius/dotnotes/
+app/src/main/java/com/jusdots/jusnotes/
 ├── MainActivity.kt               NavHost, spring enter/exit, edge-to-edge
 ├── data/
 │   ├── Note.kt                   @Entity(notes) + ChecklistItem + MapItem, indices on timestamp/lastModified/isSecret/isPinned/isDeleted
