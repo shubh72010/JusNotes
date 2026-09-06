@@ -6,12 +6,12 @@ import com.google.gson.reflect.TypeToken
 
 class Converters {
     companion object {
-        // ponytail: cache Gson + Types — old code allocated TypeToken anonymous class per row × per column
+        // ponytail: cache Gson + Types without anonymous subclass (R8-safe via getParameterized)
         private val gson = Gson()
-        private val stringListType = object : TypeToken<List<String>>() {}.type
-        private val checklistType = object : TypeToken<List<ChecklistItem>>() {}.type
-        private val intListType = object : TypeToken<List<Int>>() {}.type
-        private val mapItemType = object : TypeToken<List<MapItem>>() {}.type
+        private val stringListType = TypeToken.getParameterized(List::class.java, String::class.java).type
+        private val checklistType = TypeToken.getParameterized(List::class.java, ChecklistItem::class.java).type
+        private val intListType = TypeToken.getParameterized(List::class.java, Int::class.javaObjectType).type
+        private val mapItemType = TypeToken.getParameterized(List::class.java, MapItem::class.java).type
     }
 
     @TypeConverter

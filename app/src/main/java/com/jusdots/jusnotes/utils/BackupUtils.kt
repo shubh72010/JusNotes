@@ -141,8 +141,8 @@ object BackupUtils {
             }
         } catch (e: Exception) {
             try {
-                // Try raw list of notes
-                val listType = object : TypeToken<List<Note>>() {}.type
+                // Try raw list of notes — R8-safe via getParameterized
+                val listType = TypeToken.getParameterized(List::class.java, Note::class.java).type
                 val notes: List<Note> = gson.fromJson(json, listType)
                 notes.map { it.copy(id = 0) }
             } catch (e2: Exception) {

@@ -19,3 +19,9 @@
 # If you keep the line number information, uncomment this to
 # hide the original source file name.
 #-renamesourcefileattribute SourceFile
+
+# Keep Gson generic signatures for R8 (Converters + BackupUtils use TypeToken)
+-keepattributes Signature
+-keep class com.google.gson.reflect.TypeToken { *; }
+-keep class com.jusdots.jusnotes.data.** { *; }
+-keep class com.google.gson.** { *; }
