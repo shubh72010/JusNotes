@@ -98,6 +98,153 @@ jobs:
           cat app-release.apk.sha512
           ls -lh app-release.apk.*
 
+      - name: VirusTotal scan
+        id: vt
+        env:
+          VIRUSTOTAL_API_KEY: ${{ secrets.VIRUSTOTAL_API_KEY }}
+        run: |
+          set +e
+          APK=app/build/outputs/apk/release/app-release.apk
+          SHA256=$(sha256sum "$APK" | cut -d' ' -f1)
+          echo "APK SHA256: $SHA256"
+          mkdir -p app/build/outputs/apk/release
+
+          # Default result — overridden on success/failure
+          VT_SUMMARY="VirusTotal scan skipped (no API key)"
+          VT_JSON="{}"
+
+          if [ -z "$VIRUSTOTAL_API_KEY" ]; then
+            echo "No VIRUSTOTAL_API_KEY — skipping scan"
+            echo "result=skipped" >> $GITHUB_OUTPUT
+            echo "summary=$VT_SUMMARY" >> $GITHUB_OUTPUT
+            echo "$VT_SUMMARY" > app/build/outputs/apk/release/virustotal.txt
+            echo "$VT_JSON" > app/build/outputs/apk/release/virustotal.json
+            echo "$VT_SUMMARY" >> $GITHUB_STEP_SUMMARY
+            exit 0
+          fi
+
+          echo "Querying VirusTotal for $SHA256..."
+          # Try file lookup
+          HTTP_CODE=$(curl -s -o /tmp/vt_file.json -w "%{http_code}" -H "x-apikey: $VIRUSTOTAL_API_KEY" "https://www.virustotal.com/api/v3/files/$SHA256" || true)
+          echo "File lookup HTTP: $HTTP_CODE"
+
+          if [ "$HTTP_CODE" = "200" ]; then
+            echo "File already known to VirusTotal"
+            cat /tmp/vt_file.json > /tmp/vt_result.json
+          elif [ "$HTTP_CODE" = "404" ]; then
+            echo "File not known — uploading to VirusTotal..."
+            UPLOAD_CODE=$(curl -s -o /tmp/vt_upload.json -w "%{http_code}" -H "x-apikey: $VIRUSTOTAL_API_KEY" -F "file=@$APK" "https://www.virustotal.com/api/v3/files" || true)
+            echo "Upload HTTP: $UPLOAD_CODE"
+            cat /tmp/vt_upload.json | head -n 50
+            if [ "$UPLOAD_CODE" = "200" ]; then
+              ANALYSIS_ID=$(python3 -c "import json; print(json.load(open('/tmp/vt_upload.json'))['data']['id'])" 2>/dev/null || echo "")
+              if [ -n "$ANALYSIS_ID" ]; then
+                echo "Polling analysis $ANALYSIS_ID..."
+                for i in 1 2 3 4 5 6; do
+                  sleep 10
+                  ACODE=$(curl -s -o /tmp/vt_analysis.json -w "%{http_code}" -H "x-apikey: $VIRUSTOTAL_API_KEY" "https://www.virustotal.com/api/v3/analyses/$ANALYSIS_ID" || true)
+                  STATUS=$(python3 -c "import json; print(json.load(open('/tmp/vt_analysis.json'))['data']['attributes']['status'])" 2>/dev/null || echo "unknown")
+                  echo "Attempt $i: status=$STATUS code=$ACODE"
+                  if [ "$STATUS" = "completed" ]; then
+                    # Re-fetch file report after analysis
+                    curl -s -H "x-apikey: $VIRUSTOTAL_API_KEY" "https://www.virustotal.com/api/v3/files/$SHA256" -o /tmp/vt_file.json || true
+                    cat /tmp/vt_file.json > /tmp/vt_result.json
+                    break
+                  fi
+                done
+              fi
+            else
+              echo "Upload failed ($UPLOAD_CODE) — API quota or key invalid?"
+              VT_SUMMARY="VirusTotal scan of app-release.apk — upload failed (HTTP $UPLOAD_CODE, key/quota?)"
+              echo "result=failed" >> $GITHUB_OUTPUT
+              echo "summary=$VT_SUMMARY" >> $GITHUB_OUTPUT
+              echo "$VT_SUMMARY" > app/build/outputs/apk/release/virustotal.txt
+              echo "{\"error\":\"upload failed $UPLOAD_CODE\"}" > app/build/outputs/apk/release/virustotal.json
+              echo "$VT_SUMMARY" >> $GITHUB_STEP_SUMMARY
+              exit 0
+            fi
+            # Fallback if no vt_result yet
+            [ -f /tmp/vt_result.json ] || cp /tmp/vt_file.json /tmp/vt_result.json 2>/dev/null || echo "{}" > /tmp/vt_result.json
+          elif [ "$HTTP_CODE" = "401" ] || [ "$HTTP_CODE" = "403" ]; then
+            echo "VirusTotal auth failed — check API key"
+            VT_SUMMARY="VirusTotal scan of app-release.apk — auth failed (invalid key, HTTP $HTTP_CODE)"
+            echo "result=auth_failed" >> $GITHUB_OUTPUT
+            echo "summary=$VT_SUMMARY" >> $GITHUB_OUTPUT
+            echo "$VT_SUMMARY" > app/build/outputs/apk/release/virustotal.txt
+            echo "{\"error\":\"auth $HTTP_CODE\"}" > app/build/outputs/apk/release/virustotal.json
+            echo "$VT_SUMMARY" >> $GITHUB_STEP_SUMMARY
+            exit 0
+          else
+            echo "Unexpected VT response $HTTP_CODE"
+            cat /tmp/vt_file.json 2>/dev/null | head -n 30
+            VT_SUMMARY="VirusTotal scan of app-release.apk — API error (HTTP $HTTP_CODE)"
+            echo "result=api_error" >> $GITHUB_OUTPUT
+            echo "summary=$VT_SUMMARY" >> $GITHUB_OUTPUT
+            echo "$VT_SUMMARY" > app/build/outputs/apk/release/virustotal.txt
+            echo "{\"error\":\"http $HTTP_CODE\"}" > app/build/outputs/apk/release/virustotal.json
+            echo "$VT_SUMMARY" >> $GITHUB_STEP_SUMMARY
+            exit 0
+          fi
+
+          # Parse stats if we have file report
+          if [ -f /tmp/vt_result.json ]; then
+            python3 << 'PYEOF' || true
+          import json, pathlib
+          try:
+              d=json.load(open('/tmp/vt_result.json'))
+              attrs=d.get('data',{}).get('attributes',{})
+              stats=attrs.get('last_analysis_stats',{})
+              # stats keys: malicious, suspicious, undetected, harmless, timeout, failure, type-unsupported
+              mal=stats.get('malicious',0)
+              sus=stats.get('suspicious',0)
+              und=stats.get('undetected',0)
+              har=stats.get('harmless',0)
+              total=mal+sus+und+har
+              link=attrs.get('permalink') or f"https://www.virustotal.com/gui/file/{open('/tmp/sha.txt').read().strip() if pathlib.Path('/tmp/sha.txt').exists() else ''}/detection" if False else f"https://www.virustotal.com/gui/file/{attrs.get('sha256','')}/detection"
+              # fallback link
+              sha=attrs.get('sha256') or open('/tmp/sha.txt').read().strip() if pathlib.Path('/tmp/sha.txt').exists() else ''
+              if not sha:
+                  import hashlib
+                  sha=__import__('hashlib').sha256(open('app/build/outputs/apk/release/app-release.apk','rb').read()).hexdigest()
+              link=f"https://www.virustotal.com/gui/file/{sha}/detection"
+              if mal==0 and sus==0:
+                  summary=f"VirusTotal scan of app-release.apk — clean (0/{total} detections) — [view on VirusTotal]({link})"
+                  result="clean"
+              else:
+                  summary=f"VirusTotal scan of app-release.apk — {mal} malicious, {sus} suspicious / {total} — [view on VirusTotal]({link})"
+                  result="detected" if mal>0 else "suspicious"
+              open('app/build/outputs/apk/release/virustotal.txt','w').write(summary+"\n")
+              open('/tmp/vt_summary.txt','w').write(summary)
+              open('/tmp/vt_result_flag.txt','w').write(result)
+          except Exception as e:
+              print(f"parse error {e}")
+              open('app/build/outputs/apk/release/virustotal.txt','w').write(f"VirusTotal scan of app-release.apk — parse error: {e}\n")
+              open('/tmp/vt_result_flag.txt','w').write("parse_error")
+          PYEOF
+            # ensure sha for link generation if needed
+            echo -n "$SHA256" > /tmp/sha.txt
+            # re-run python snippet was inline, now read outputs
+            VT_SUMMARY=$(cat app/build/outputs/apk/release/virustotal.txt 2>/dev/null || echo "VirusTotal scan of app-release.apk — unknown")
+            VT_RESULT=$(cat /tmp/vt_result_flag.txt 2>/dev/null || echo "unknown")
+            cp /tmp/vt_result.json app/build/outputs/apk/release/virustotal.json 2>/dev/null || echo "{}" > app/build/outputs/apk/release/virustotal.json
+          else
+            VT_SUMMARY="VirusTotal scan of app-release.apk — no report"
+            VT_RESULT="no_report"
+            echo "$VT_SUMMARY" > app/build/outputs/apk/release/virustotal.txt
+            echo "{}" > app/build/outputs/apk/release/virustotal.json
+          fi
+
+          echo "summary=$VT_SUMMARY" >> $GITHUB_OUTPUT
+          echo "result=$VT_RESULT" >> $GITHUB_OUTPUT
+          echo "$VT_SUMMARY" >> $GITHUB_STEP_SUMMARY
+          echo "VirusTotal: $VT_SUMMARY (result=$VT_RESULT)"
+
+          # Gate: fail workflow on detections (malicious>0)
+          if [ "$VT_RESULT" = "detected" ]; then
+            echo "::error::VirusTotal flagged APK as malicious — failing release"
+            exit 1
+          fi
+
       - name: Attest build provenance
         uses: actions/attest-build-provenance@v2
         with:
@@ -114,6 +261,9 @@ jobs:
           else
             LOG=$(git log "$LAST_TAG"..HEAD --pretty=format:"- %s (%h)" --no-merges | head -n 30)
           fi
+          # also write changelog file for artifact
+          echo "$LOG" > app/build/outputs/apk/release/CHANGELOG.txt
+          cat app/build/outputs/apk/release/CHANGELOG.txt
           echo "log<<EOF" >> $GITHUB_OUTPUT
           echo "$LOG" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
@@ -124,15 +274,15 @@ jobs:
         with:
           tag_name: v0.3.${{ github.run_number }}
           name: v0.3.${{ github.run_number }}
-          generate_release_notes: true
+          generate_release_notes: false
           body: |
-            Automated release from `${{ github.sha }}`.
-
             **Changelog since ${{ steps.changelog.outputs.last_tag || 'initial' }}:**
             ${{ steps.changelog.outputs.log }}
 
             **Signature:** `DotNotes Release (RSA 4096)` — verify with `apksigner verify --print-certs`.
             **Checksums:** see `app-release.apk.sha256` / `.sha512` assets.
+            **${{ steps.vt.outputs.summary || 'VirusTotal scan of app-release.apk — pending' }}**
+
             Built via `assembleRelease` (R8 + shrinkResources), attested with `actions/attest-build-provenance`.
 
             > **Note:** v0.3.0–v0.3.2 were signed with debug keystore; from v0.3.3+ real release key is used. Debug users must reinstall (signatures differ).
@@ -140,6 +290,9 @@ jobs:
             app/build/outputs/apk/release/app-release.apk
             app/build/outputs/apk/release/app-release.apk.sha256
             app/build/outputs/apk/release/app-release.apk.sha512
+            app/build/outputs/apk/release/virustotal.txt
+            app/build/outputs/apk/release/virustotal.json
+            app/build/outputs/apk/release/CHANGELOG.txt
             app/build/outputs/apk/release/output-metadata.json
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
