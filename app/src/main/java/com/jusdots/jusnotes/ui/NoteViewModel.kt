@@ -102,10 +102,10 @@ class NoteViewModel(application: Application) : AndroidViewModel(application) {
 
         var filteredNotes = notes
 
-        // Filter by Tab — pinned stays visible
+        // Filter by Tab — homescreen (NOTES) shows all notes + checklists; MAPS separate
         filteredNotes = filteredNotes.filter { note ->
             when (tab) {
-                NoteTab.NOTES -> !note.isChecklist && !note.isMap
+                NoteTab.NOTES -> !note.isMap
                 NoteTab.CHECKLISTS -> note.isChecklist && !note.isMap
                 NoteTab.MAPS -> note.isMap
                 NoteTab.SEARCH -> true

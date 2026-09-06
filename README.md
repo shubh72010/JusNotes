@@ -1,103 +1,130 @@
-# JusNotes 📝
+<p align="center">
+  <img src="app/src/main/assets/JusNotes.svg" width="96" height="96" alt="JusNotes" />
+</p>
 
-> Modern, privacy-focused note-taking for Android — spatial maps instead of folders, AI inside the editor, and a pill-centric UI that feels the same everywhere.
+<h1 align="center">JusNotes</h1>
+<p align="center"><em>Modern, privacy-focused notes for Android — spatial maps, markdown, checklists & AI, wrapped in a pill.</em></p>
 
-[![Kotlin 2.0](https://img.shields.io/badge/Kotlin-2.0.21-purple?logo=kotlin)](https://kotlinlang.org)
-[![Compose BOM 2024.09](https://img.shields.io/badge/Compose_BOM-2024.09.00-blue)](https://developer.android.com/jetpack/compose)
-[![Min SDK 24](https://img.shields.io/badge/minSdk-24-green)](https://developer.android.com)
-[![License GPL-3.0](https://img.shields.io/badge/License-GPL--3.0-blue)](LICENSE)
-[![Downloads](https://img.shields.io/github/downloads/shubh72010/JusNotes/total?label=Downloads&color=success)](https://github.com/shubh72010/JusNotes/releases)
+<p align="center">
+  <a href="https://github.com/shubh72010/DotNotes/releases"><img src="https://img.shields.io/github/v/release/shubh72010/DotNotes?label=release&color=111111&style=flat-square" alt="release" /></a>
+  <a href="https://github.com/shubh72010/DotNotes/releases"><img src="https://img.shields.io/github/downloads/shubh72010/DotNotes/total?label=downloads&color=0ea5e9&style=flat-square" alt="downloads" /></a>
+  <img src="https://img.shields.io/badge/Kotlin-2.0.21-7f52ff?style=flat-square&logo=kotlin&logoColor=white" alt="kotlin" />
+  <img src="https://img.shields.io/badge/Compose_BOM-2024.09.00-4285f4?style=flat-square" alt="compose" />
+  <img src="https://img.shields.io/badge/minSdk-24-00c853?style=flat-square" alt="minsdk" />
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-GPL--3.0-111111?style=flat-square" alt="license" /></a>
+</p>
 
-## ✨ Features
+<p align="center">
+  <a href="#-screenshots">Screenshots</a> •
+  <a href="#-features">Features</a> •
+  <a href="#-pill-philosophy">Pill</a> •
+  <a href="#-build--run">Build</a> •
+  <a href="ARCHITECTURE.md">Architecture</a> •
+  <a href="DESIGN_LANGUAGE.md">Design</a>
+</p>
 
-- **🗺️ Visual Note Maps** — every Map is a `Note(isMap=true)` with `mapItems`; link notes via `linkedNoteIds` or wiki `[[Note Name]]`. Spatial organization, not folders.
-- **🤖 AI Assistant** — OpenRouter (`google/gemini-flash-1.5` default) fixes grammar, retones, bullets↔prose, Q&A, summarize. Key/model stored in `DataStore` (`SettingsManager`), never committed.
-- **✍️ Markdown Engine** — custom block renderer: bold/italic/strike, code, tables, quotes, checklists.
-- **✅ Checklists** — `isChecklist + checklist: List<ChecklistItem>` with `reorderable 2.4.1` drag-and-drop. `[] ` at start of content auto-converts.
-- **🖼️ Images** — `images: List<String>` (uris), Coil `2.5.0`, in-app camera + picker.
-- **🔒 Secret Notes** — `isSecret` + Biometric prompt, filtered from main feed, authenticated via `isSecretAuthenticated`.
-- **📌 Pinned on Top** — `isPinned` sorted via `sortedWith(compareByDescending isPinned)` after every sort; visible in every tab, also exposed as `pinnedNotes`.
-- **🎨 Theming** — System / Material You (dynamic on S+) / Light / Dark, plus global animation toggle (`isAnimationsEnabled`). Edge-to-edge transparent bars (`Theme.kt`, `themes.xml`).
-- **🔍 Search & Tags** — debounced `300ms` search across title/content/tags, `selectedTag` chips (`allTags` derived), `SortOrder` 5 ways, `selectedMapId` filtering.
-- **🗑️ Trash** — soft-delete `isDeleted + deletedTimestamp`, 30-day auto-purge on `ViewModel.init`, restore/empty/permanent delete.
-- **📐 Grid / List** — `viewMode` (`list`/`grid`) persisted in `DataStore`; `LazyVerticalStaggeredGrid(2)` on grid, `LazyColumn` with swipe-to-delete/lock on list.
-- **💊 Pill Navigation** — every primary screen (`list`, `editor`, `map`, `settings`, `trash`, `secret`) has the same floating pill (`surfaceContainerHighest`, `28dp↔32dp` spring `damping 0.85, stiffness 300`); tap to expand, drag/swipe to switch tabs, long-press `+` to add.
-- **🎓 Visual Tutorial** — 5-step spotlight overlay (`TutorialOverlay`) on first launch (`hasShownGestureHints`), re-openable from Settings → Help.
+---
 
-## 🛠️ Tech Stack
+### ✨ Screenshots
+
+<table>
+  <tr>
+    <td align="center"><img src="app/src/main/assets/Screenshot_20260906-194319.png" width="200" alt="Editor" /><br/><sub><b>Editor</b> — markdown + pill toolbar</sub></td>
+    <td align="center"><img src="app/src/main/assets/Screenshot_20260906-194331.png" width="200" alt="Note actions" /><br/><sub><b>Pill menu</b> — Color / Tags / Preview / Lock / Pin</sub></td>
+    <td align="center"><img src="app/src/main/assets/Screenshot_20260906-194348.png" width="200" alt="Preview" /><br/><sub><b>Preview</b> — long form, smooth scroll</sub></td>
+  </tr>
+  <tr>
+    <td align="center"><img src="app/src/main/assets/Screenshot_20260906-194738.png" width="200" alt="AI Assist" /><br/><sub><b>AI Assist</b> — Summary / Grammar / Rewrite</sub></td>
+    <td align="center"><img src="app/src/main/assets/Screenshot_20260906-194400.png" width="200" alt="Settings" /><br/><sub><b>Settings</b> — Material You + Vault + Backup</sub></td>
+    <td align="center"><img src="app/src/main/assets/Normal.png" width="120" alt="Icon" /><br/><sub><b>Icon</b> — light & monochrome variants</sub></td>
+  </tr>
+</table>
+
+> Tip: all screens share the same floating **Pill** — tap to expand, drag to switch tabs, long-press **+** to create.
+
+---
+
+### 🌟 Features
+
+| Area | What you get |
+|---|---|
+| 🗺️ **Maps, not folders** | `Note(isMap=true)` + `mapItems` + `linkedNoteIds` / `[[Wiki]]`. Spatial canvas with drag. |
+| ✅ **Checklists** | `isChecklist + List<ChecklistItem>` with `reorderable 2.4.1`. Type `[] ` to convert. Now visible on **homescreen (NOTES)** and filtered in **CHECKLISTS** tab. |
+| ✍️ **Markdown** | Block renderer — headings, bold/italic/strike, code, tables, quotes, checklists, `![image](uri)`. Off-main-thread parsing for large docs. |
+| 🖼️ **Images** | `images: List<String>` uris, Coil 2.5.0 with `size(800)` — viewport-aware decode. Camera + picker → `![alt](content://…)` embed. |
+| 🤖 **AI** | OpenRouter (`minimax/m3:free` etc, your key only). Polish / Rewrite / Structure — never stored, `DataStore` only. |
+| 🔒 **Secret** | `isSecret` + Biometric, hidden from main feed, `isSecretAuthenticated` gate. |
+| 📌 **Pinned** | `isPinned` always on top (`sortedWith` stable partition) — every tab. |
+| 🔍 **Search & Tags** | Debounced 300ms on title/content/tags, tag chips (`allTags`), 5 sort orders, `selectedMapId` filter. |
+| 🗑️ **Trash** | Soft delete `isDeleted + deletedTimestamp`, 30-day auto-purge on `ViewModel.init`. |
+| 📐 **Grid / List** | `viewMode` persisted in `DataStore`; `LazyVerticalStaggeredGrid(2)` + `LazyColumn` with swipe-to-delete/lock. |
+| 🎓 **Tutorial** | 5-step spotlight (`hasShownGestureHints`), reopen from Settings. |
+
+### 💊 Pill Philosophy
+
+Every primary destination — **Notes / Editor / Map / Settings / Trash / Secret** — uses the same floating pill (`surfaceContainerHighest`, `28dp↔32dp`, `spring(damping 0.85, stiffness 300)`). It is the only chrome: search on the list, actions on the editor. Swipe the pill to switch tabs, drag up to expand, long-press the `+` to add anywhere. Small API, big consistency.
+
+---
+
+### 🛠️ Stack
 
 | Layer | Choice |
-|-------|--------|
-| UI | Jetpack Compose (BOM 2024.09.00) + Material3, Navigation Compose 2.8.5 |
-| State | `NoteViewModel` (monolithic, `AndroidViewModel`) owns all `StateFlow`s, no DI |
-| DB | Room 2.6.1 + KSP (`AppDatabase` v10, `fallbackToDestructiveMigration`, `exportSchema=false`) |
-| Async | Kotlin Coroutines + Flow (`debounce`, `combine`, `flowOn(Default)`) |
-| Prefs | DataStore Preferences (`SettingsManager`: `API_KEY`, `MODEL_ID`, `THEME`, `ANIMATIONS_ENABLED`, `STORAGE_URI`, `HAS_SHOWN_GESTURE_HINTS`, `VIEW_MODE`) |
-| Network | Retrofit + OkHttp + Gson (`NetworkModule` singleton, `OpenRouterApi`) |
-| Media | Coil 2.5.0, Biometric, DocumentFile, `reorderable` |
-| Build | Gradle 8.13.2, AGP 8.13.2, Kotlin 2.0.21, JDK 17, Version Catalog `gradle/libs.versions.toml` |
+|---|---|
+| UI | Compose BOM 2024.09.00 + Material 3, Navigation Compose 2.8.5 |
+| State | `NoteViewModel` (`AndroidViewModel`, all `StateFlow`s, no DI) |
+| DB | Room 2.6.1 + KSP (`AppDatabase` v10, `fallbackToDestructiveMigration`) — single-source `getAllNotes()` + lightweight `NoteListItem` preview projection |
+| Async | Coroutines + Flow (`debounce`, `combine`, `flowOn(Default)`, `produceState` for markdown) |
+| Prefs | DataStore (`SettingsManager`) |
+| Network | Retrofit + OkHttp + Gson, Coil 2.5.0, Biometric, DocumentFile |
+| Build | Gradle 8.13.2, AGP 8.13.2, Kotlin 2.0.21, JDK 21 (CI), version catalog |
 
-## 📁 Project Layout
+---
 
-```
-:app (com.jusdots.jusnotes, minSdk 24, targetSdk 36, compileSdk 36, v0.3.0/11)
-├── MainActivity.kt — sole NavHost (routes: list, settings, trash, secret_notes,
-│                      editor/{noteId}?initialTab=, image_viewer/{imageUri},
-│                      map/{noteId}, tutorial) with spring transitions
-├── data/ — Note.kt, NoteDao.kt, AppDatabase.kt, Converters.kt,
-│           NoteRepository.kt, SettingsManager.kt
-├── ui/ — NoteViewModel.kt, NoteListScreen.kt (+ GridNoteItem), NoteEditorScreen.kt,
-│         NoteMapScreen.kt, SettingsScreen.kt, TrashScreen.kt, SecretNotesScreen.kt,
-│         TutorialScreen.kt, ImageViewerScreen.kt
-│   ├── components/ — TutorialOverlay.kt, BlurText.kt, PinnedNotesBar.kt,
-│   │                 MarkdownBlockView.kt, PillControlBar.kt, etc.
-│   └── theme/ — Theme.kt, Color.kt, Type.kt
-├── network/ — NetworkModule.kt, OpenRouterApi.kt
-├── utils/ — BackupUtils.kt, MarkdownRenderer.kt
-└── res/values/themes.xml — transparent status/nav, windowBackground
-```
-
-## 🚀 Build & Run
+### 🚀 Build & Run
 
 ```bash
-# prerequisites: JDK 17, Android SDK 24+, Android Studio
-git clone https://github.com/shubh72010/JusNotes.git
-cd JusNotes
+git clone https://github.com/shubh72010/DotNotes.git
+cd DotNotes
 
-# Linux gotcha: gradle.properties hardcodes Windows jbr — override
-./gradlew assembleDebug -Porg.gradle.java.home=/usr/lib/jvm/java-17-openjdk-amd64
-# or: export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64 && sed -i '/org.gradle.java.home/d' gradle.properties
+# Linux gotcha — gradle.properties hardcodes Windows jbr, override:
+./gradlew assembleDebug -Porg.gradle.java.home=/usr/lib/jvm/temurin-21-jdk
+# or: sed -i '/org.gradle.java.home/d' gradle.properties
 
-./gradlew assembleDebug        # debug APK → app/build/outputs/apk/debug/app-debug.apk (22M)
-./gradlew assembleRelease      # release APK (R8 + shrinkResources, signed with debug.keystore)
-                               # → app/build/outputs/apk/release/app-release.apk (2.7M)
-./gradlew test                 # unit tests
-./gradlew connectedAndroidTest # on device/emulator
-./gradlew clean
+./gradlew assembleDebug        # → app/build/outputs/apk/debug/app-debug.apk (~22M)
+./gradlew assembleRelease      # R8 + shrinkResources → app/build/outputs/apk/release/app-release.apk (~2.7M)
+./gradlew test                 # includes PerfRegressionTest
+./gradlew connectedAndroidTest # device/emulator
 ```
 
-APKs are attached to GitHub Releases (`v0.3.0 "Pill & Polish"` etc.). CI (`release.yml`) builds the same on `push to main`.
+Releases are attached to GitHub Releases — CI (`release.yml`) builds `assembleRelease` on `push to main`.
 
-## 🧭 Usage
+---
 
-1. **Pill** — tap to expand menu (Sort, Grid/List, Settings, tags), drag up/down to expand/collapse, swipe left/right to switch tabs (`NOTES`/`CHECKLISTS`/`MAPS`/`SEARCH`), long-press `+` to add.
-2. **Notes** — swipe right → trash, left → lock (secret). Long-press → add to Map.
-3. **Editor** — title/content, color, tags (`#tag`), lock/pin, duplicate, AI assist, image, checklist toggle (`[] `), `[[Wiki Link]]`.
-4. **Maps** — create Map note, drag items on canvas.
-5. **Settings** — Appearance (theme + animation switch), Intelligence (API key/model), Storage (backup folder `/ import .txt/.md/.json`), Vault (trash/secret), Help (re-show tutorial).
-6. **Backup** — pick a DocumentTree folder, then Backup now (exports JSON); Import via picker.
+### 📁 Layout
 
-## 🤝 Contributing
+```
+:app (com.jusdots.jusnotes, minSdk 24, target 36, v0.3.1/12)
+├── MainActivity.kt — NavHost (list, editor/{id}, map/{id}, settings, trash, secret, tutorial, image_viewer)
+├── data/ — Note.kt, NoteListItem.kt, NoteDao.kt, AppDatabase.kt, Converters.kt, NoteRepository.kt, SettingsManager.kt
+├── ui/ — NoteViewModel.kt, NoteListScreen.kt (+ GridNoteItem + SwipeableNoteCard), NoteEditorScreen.kt, ...
+│   └── components/ — MarkdownBlockView.kt, TutorialOverlay.kt, BlurText.kt, PinnedNotesBar.kt, ...
+├── network/ — NetworkModule.kt, OpenRouterApi.kt
+├── utils/ — BackupUtils.kt, MarkdownRenderer.kt
+└── res/drawable/jusnotes_logo.xml — pill-cross logo
+```
 
-Branch from `main`, keep Kotlin `official` style (`kotlin.code.style=official`, `nonTransitiveRClass=true`), no formatter/linter enforced. See [CONTRIBUTING.md](CONTRIBUTING.md).
+Deep dive: [ARCHITECTURE.md](ARCHITECTURE.md) · [DESIGN_LANGUAGE.md](DESIGN_LANGUAGE.md) · [AGENTS.md](AGENTS.md) · [CURRENT_STATE.md](CURRENT_STATE.md)
 
-## 🔒 Privacy
+---
 
-All notes stored locally in Room (`note_database`). AI calls are the only network egress, only when you trigger an AI action, using your own OpenRouter key.
+### 🔒 Privacy
 
-## 📄 License
+Local-first. Room (`note_database`) is the source of truth. The only network egress is an OpenRouter call when **you** tap an AI action, with **your** key. No telemetry, no Firebase, no crashlytics.
+
+### 📄 License
 
 GPL-3.0 — see [LICENSE](LICENSE).
 
 ---
-Made with ❤️ by [flakesofsmth](https://github.com/shubh72010) · Architecture → [ARCHITECTURE.md](ARCHITECTURE.md) · Design → [DESIGN_LANGUAGE.md](DESIGN_LANGUAGE.md) · Agents → [AGENTS.md](AGENTS.md)
+
+<p align="center"><sub>Made with ❤️ by <a href="https://github.com/shubh72010">flakesofsmth</a> · Star if you like the pill.</sub></p>
